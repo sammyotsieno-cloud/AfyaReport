@@ -13,8 +13,9 @@ android {
         applicationId = "ke.co.afyareport"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        val buildVersionCode = providers.gradleProperty("VERSION_CODE").orElse("1").get().toInt()
+        versionCode = buildVersionCode
+        versionName = "0.1.$buildVersionCode"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
