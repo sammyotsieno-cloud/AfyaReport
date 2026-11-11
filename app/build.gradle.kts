@@ -7,6 +7,7 @@ plugins {
 android {
     namespace = "ke.co.afyareport"
     compileSdk = 36
+    buildToolsVersion = "36.0.0"
 
     defaultConfig {
         applicationId = "ke.co.afyareport"
