@@ -19,6 +19,25 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file(
+                System.getenv("AFYAREPORT_KEYSTORE_PATH")
+                    ?: "keystore/afyareport-release.jks"
+            )
+            storePassword = System.getenv("AFYAREPORT_KEYSTORE_PASSWORD") ?: ""
+            keyAlias = System.getenv("AFYAREPORT_KEY_ALIAS") ?: ""
+            keyPassword = System.getenv("AFYAREPORT_KEY_PASSWORD") ?: ""
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = false
+        }
+    }
+
     buildFeatures {
         compose = true
     }
