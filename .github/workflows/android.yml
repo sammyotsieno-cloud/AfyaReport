@@ -59,7 +59,7 @@ jobs:
           echo "AFYAREPORT_KEY_PASSWORD=$AFYAREPORT_KEY_PASSWORD" >> "$GITHUB_ENV"
 
       - name: Build signed release APK
-        run: ./gradlew --no-daemon --stacktrace :app:assembleRelease
+        run: ./gradlew --no-daemon --stacktrace -PVERSION_CODE="$GITHUB_RUN_NUMBER" :app:assembleRelease
 
       - name: Upload application artifact
         uses: actions/upload-artifact@v6
