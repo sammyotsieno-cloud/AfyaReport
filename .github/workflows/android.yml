@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   build:
-    name: Build Android application
+    name: Build signed Android application
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -31,18 +31,40 @@ jobs:
       - name: Install Android SDK components
         run: sdkmanager --install "platforms;android-36" "build-tools;36.0.0"
 
-      - name: Verify Gradle wrapper
+      - name: Verify signing configuration
+        env:
+          AFYAREPORT_KEYSTORE_BASE64: ${{ secrets.AFYAREPORT_KEYSTORE_BASE64 }}
+          AFYAREPORT_KEYSTORE_PASSWORD: ${{ secrets.AFYAREPORT_KEYSTORE_PASSWORD }}
+          AFYAREPORT_KEY_ALIAS: ${{ secrets.AFYAREPORT_KEY_ALIAS }}
+          AFYAREPORT_KEY_PASSWORD: ${{ secrets.AFYAREPORT_KEY_PASSWORD }}
         run: |
-          chmod +x gradlew
-          ./gradlew --version
+          test -n "$AFYAREPORT_KEYSTORE_BASE64" || (echo "Missing AFYAREPORT_KEYSTORE_BASE64 secret" && exit 1)
+          test -n "$AFYAREPORT_KEYSTORE_PASSWORD" || (echo "Missing AFYAREPORT_KEYSTORE_PASSWORD secret" && exit 1)
+          test -n "$AFYAREPORT_KEY_ALIAS" || (echo "Missing AFYAREPORT_KEY_ALIAS secret" && exit 1)
+          test -n "$AFYAREPORT_KEY_PASSWORD" || (echo "Missing AFYAREPORT_KEY_PASSWORD secret" && exit 1)
 
-      - name: Assemble debug application
-        run: ./gradlew --no-daemon --stacktrace :app:assembleDebug
+      - name: Prepare signing keystore
+        env:
+          AFYAREPORT_KEYSTORE_BASE64: ${{ secrets.AFYAREPORT_KEYSTORE_BASE64 }}
+          AFYAREPORT_KEYSTORE_PASSWORD: ${{ secrets.AFYAREPORT_KEYSTORE_PASSWORD }}
+          AFYAREPORT_KEY_ALIAS: ${{ secrets.AFYAREPORT_KEY_ALIAS }}
+          AFYAREPORT_KEY_PASSWORD: ${{ secrets.AFYAREPORT_KEY_PASSWORD }}
+        run: |
+          KEYSTORE_PATH="$RUNNER_TEMP/afyareport-release.jks"
+          printf '%s' "$AFYAREPORT_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          chmod 600 "$KEYSTORE_PATH"
+          echo "AFYAREPORT_KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+          echo "AFYAREPORT_KEYSTORE_PASSWORD=$AFYAREPORT_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "AFYAREPORT_KEY_ALIAS=$AFYAREPORT_KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "AFYAREPORT_KEY_PASSWORD=$AFYAREPORT_KEY_PASSWORD" >> "$GITHUB_ENV"
 
-      - name: Upload build artifact
+      - name: Build signed release APK
+        run: ./gradlew --no-daemon --stacktrace :app:assembleRelease
+
+      - name: Upload application artifact
         uses: actions/upload-artifact@v6
         with:
           name: AfyaReport
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
