@@ -8,8 +8,9 @@ permissions:
 
 jobs:
   build:
-    name: Build debug APK
+    name: Build Android application
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Check out repository
@@ -23,21 +24,25 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v5
-        with:
-          gradle-version: "8.13"
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
 
-      - name: Install Android SDK Platform 36
-        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - name: Install Android SDK components
+        run: sdkmanager --install "platforms;android-36" "build-tools;36.0.0"
 
-      - name: Build debug APK
-        run: gradle --no-daemon :app:assembleDebug
+      - name: Verify Gradle wrapper
+        run: |
+          chmod +x gradlew
+          ./gradlew --version
 
-      - name: Upload debug APK
+      - name: Assemble debug application
+        run: ./gradlew --no-daemon --stacktrace :app:assembleDebug
+
+      - name: Upload build artifact
         uses: actions/upload-artifact@v6
         with:
           name: AfyaReport
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+          retention-days: 14
