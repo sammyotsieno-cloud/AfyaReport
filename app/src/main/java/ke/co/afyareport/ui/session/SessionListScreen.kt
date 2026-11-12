@@ -38,10 +38,9 @@ fun SessionListScreen(
     sessionRepository: SessionRepository,
     onBack: () -> Unit,
     onCreateSession: () -> Unit,
-    onSessionClick: (Long) -> Unit = {}
+    onSessionClick: (Long) -> Unit
 ) {
     val sessions by sessionRepository.observeAllSessions().collectAsState(initial = emptyList())
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -61,36 +60,25 @@ fun SessionListScreen(
     ) { padding ->
         if (sessions.isEmpty()) {
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(24.dp),
+                modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                Text("No sessions yet", style = MaterialTheme.typography.titleMedium)
                 Text(
-                    text = "No sessions yet",
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    text = "Start a reporting session from a register",
+                    "Start a reporting session from a register",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         } else {
             LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
+                modifier = Modifier.fillMaxSize().padding(padding),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(sessions, key = { it.id }) { session ->
-                    SessionCard(
-                        session = session,
-                        onClick = { onSessionClick(session.id) }
-                    )
+                    SessionCard(session = session, onClick = { onSessionClick(session.id) })
                 }
             }
         }
@@ -98,16 +86,9 @@ fun SessionListScreen(
 }
 
 @Composable
-private fun SessionCard(
-    session: ReportingSessionEntity,
-    onClick: () -> Unit
-) {
+private fun SessionCard(session: ReportingSessionEntity, onClick: () -> Unit) {
     val dateFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        onClick = onClick
-    ) {
+    Card(modifier = Modifier.fillMaxWidth(), onClick = onClick) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
                 text = session.customLabel.ifBlank { "Untitled session" },
