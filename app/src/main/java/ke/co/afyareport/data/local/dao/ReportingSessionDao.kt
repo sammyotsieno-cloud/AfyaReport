@@ -64,6 +64,21 @@ interface ReportingSessionDao {
     suspend fun deleteValuesForEntry(entryId: Long)
 
     /**
+     * Update a patient entry and replace its variable values atomically.
+     */
+    @Transaction
+    suspend fun updateFullEntry(
+        entry: PatientEntryEntity,
+        values: List<VariableValueEntity>
+    ) {
+        updateEntry(entry)
+        deleteValuesForEntry(entry.id)
+        if (values.isNotEmpty()) {
+            insertValues(values.map { it.copy(patientEntryId = entry.id) })
+        }
+    }
+
+    /**
      * Insert a complete patient entry together with all its variable values.
      */
     @Transaction
