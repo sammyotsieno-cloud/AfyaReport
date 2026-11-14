@@ -1,5 +1,6 @@
 package ke.co.afyareport.ui.session
 
+import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -11,6 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -26,6 +28,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import ke.co.afyareport.data.local.VariableType
 import ke.co.afyareport.data.local.VisitType
@@ -49,9 +52,14 @@ fun SessionSummaryScreen(
     var variables by remember { mutableStateOf<List<VariableDefinitionEntity>>(emptyList()) }
     var codeOptions by remember { mutableStateOf<Map<Long, List<CodeOptionEntity>>>(emptyMap()) }
     var allValues by remember { mutableStateOf<List<VariableValueEntity>>(emptyList()) }
+    var registerName by remember { mutableStateOf("") }
+    var sessionLabel by remember { mutableStateOf("") }
+    val context = LocalContext.current
 
     LaunchedEffect(sessionId) {
         val currentSession = sessionRepository.getSession(sessionId) ?: return@LaunchedEffect
+        sessionLabel = currentSession.customLabel
+        registerName = registerRepository.getRegister(currentSession.registerDefinitionId)?.name.orEmpty()
         entries = sessionRepository.getEntries(sessionId)
         variables = registerRepository.getVariables(currentSession.registerDefinitionId)
 
@@ -78,6 +86,40 @@ fun SessionSummaryScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = {
+                        val newCount = entries.count { it.visitType == VisitType.NEW }
+                        val returnCount = entries.count { it.visitType == VisitType.RETURN }
+                        val text = buildString {
+                            appendLine("AfyaReport – Session Summary")
+                            appendLine("Register: $registerName")
+                            appendLine("Label: ${sessionLabel.ifBlank { "Untitled" }}")
+                            appendLine("Total entries: ${entries.size}")
+                            appendLine()
+                            appendLine("Visit Type")
+                            appendLine("  NEW: $newCount")
+                            appendLine("  RETURN: $returnCount")
+                            appendLine()
+                            variables.filter { it.type == VariableType.CODED }.forEach { variable ->
+                                appendLine(variable.name)
+                                codeOptions[variable.id].orEmpty().forEach { option ->
+                                    val count = allValues.count {
+                                        it.variableDefinitionId == variable.id && it.value == option.code
+                                    }
+                                    appendLine("  ${option.code} – ${option.label}: $count")
+                                }
+                                appendLine()
+                            }
+                        }
+                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, text)
+                        }
+                        context.startActivity(Intent.createChooser(sendIntent, "Share session summary"))
+                    }) {
+                        Icon(Icons.Default.Share, contentDescription = "Share summary")
                     }
                 }
             )
