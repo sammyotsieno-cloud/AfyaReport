@@ -22,6 +22,7 @@ import ke.co.afyareport.ui.register.RegisterListScreen
 import ke.co.afyareport.ui.session.CreateSessionScreen
 import ke.co.afyareport.ui.session.SessionDetailScreen
 import ke.co.afyareport.ui.session.SessionListScreen
+import ke.co.afyareport.ui.session.SessionSummaryScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -99,6 +100,22 @@ private fun AfyaReportNavHost(
             val sessionId = backStackEntry.arguments?.getLong("sessionId")
                 ?: return@composable
             SessionDetailScreen(
+                sessionId = sessionId,
+                registerRepository = registerRepository,
+                sessionRepository = sessionRepository,
+                onBack = { navController.popBackStack() },
+                onOpenSummary = { id ->
+                    navController.navigate(Routes.sessionSummary(id))
+                }
+            )
+        }
+        composable(
+            route = Routes.SESSION_SUMMARY,
+            arguments = listOf(navArgument("sessionId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val sessionId = backStackEntry.arguments?.getLong("sessionId")
+                ?: return@composable
+            SessionSummaryScreen(
                 sessionId = sessionId,
                 registerRepository = registerRepository,
                 sessionRepository = sessionRepository,
