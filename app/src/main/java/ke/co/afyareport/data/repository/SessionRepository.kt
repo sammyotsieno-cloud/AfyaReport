@@ -84,6 +84,17 @@ class SessionRepository(
         return dao.insertFullEntry(entry, values)
     }
 
+    /** Updates an entry and replaces all its values in one database transaction. */
+    suspend fun updatePatientEntryFull(
+        entry: PatientEntryEntity,
+        values: List<VariableValueEntity>
+    ) {
+        dao.updateFullEntry(
+            entry.copy(updatedAt = System.currentTimeMillis()),
+            values
+        )
+    }
+
     suspend fun updatePatientEntry(entry: PatientEntryEntity) {
         dao.updateEntry(
             entry.copy(updatedAt = System.currentTimeMillis())
