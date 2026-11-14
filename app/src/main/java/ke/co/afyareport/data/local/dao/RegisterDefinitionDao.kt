@@ -43,10 +43,10 @@ interface RegisterDefinitionDao {
     """)
     suspend fun getLatestVariables(registerId: Long): List<VariableDefinitionEntity>
 
-    @Insert(onConflict = OnConflictStrategy.ABORT)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertVariable(variable: VariableDefinitionEntity): Long
 
-    @Insert(onConflict = OnConflictStrategy.ABORT)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCodeOptions(options: List<CodeOptionEntity>): List<Long>
 
     @Query("SELECT * FROM code_options WHERE variableDefinitionId = :variableId ORDER BY sortOrder ASC")

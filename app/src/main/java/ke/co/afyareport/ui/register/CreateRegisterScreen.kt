@@ -141,6 +141,7 @@ fun CreateRegisterScreen(
                         val prepared = variables.map { draft ->
                             val entity = VariableDefinitionEntity(
                                 registerDefinitionId = 0,
+                                registerVersion = 1,
                                 name = draft.name.trim().ifBlank { "Untitled" },
                                 type = draft.type,
                                 measurementInstructions = draft.measurementInstructions.trim(),

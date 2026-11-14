@@ -26,7 +26,7 @@ import ke.co.afyareport.data.local.entity.VariableValueEntity
         VariableValueEntity::class
     ],
     version = 2,
-    exportSchema = false
+    exportSchema = true
 )
 @TypeConverters(Converters::class)
 abstract class AfyaReportDatabase : RoomDatabase() {
@@ -36,7 +36,7 @@ abstract class AfyaReportDatabase : RoomDatabase() {
     companion object {
         const val DATABASE_NAME = "afyareport.db"
 
-        private val MIGRATION_1_2 = object : Migration(1, 2) {
+        val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
                     "ALTER TABLE variable_definitions ADD COLUMN registerVersion INTEGER NOT NULL DEFAULT 1"

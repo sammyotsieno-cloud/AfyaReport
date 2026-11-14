@@ -26,7 +26,7 @@ data class VariableDefinitionEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val registerDefinitionId: Long,
-    val registerVersion: Int = 1,
+    val registerVersion: Int,
     val name: String,
     val type: VariableType,
     val measurementInstructions: String = "",
