@@ -615,7 +615,7 @@ private fun PatientEntryForm(
                     val visitTypeVariable = variables.find { it.type == VariableType.VISIT_TYPE }
                     val finalValues = if (visitTypeVariable != null) {
                         valueEntities + VariableValueEntity(
-                            patientEntryId = 0,
+                            patientEntryId = existingEntry?.id ?: 0,
                             variableDefinitionId = visitTypeVariable.id,
                             value = visitType.name
                         )
