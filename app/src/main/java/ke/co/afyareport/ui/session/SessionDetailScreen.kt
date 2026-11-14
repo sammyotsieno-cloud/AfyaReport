@@ -1,5 +1,6 @@
 package ke.co.afyareport.ui.session
 
+import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -19,6 +20,10 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -42,6 +47,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import ke.co.afyareport.data.local.VariableType
 import ke.co.afyareport.data.local.VisitType
@@ -70,10 +76,16 @@ fun SessionDetailScreen(
     var codeOptions by remember { mutableStateOf<Map<Long, List<CodeOptionEntity>>>(emptyMap()) }
     var entries by remember { mutableStateOf<List<PatientEntryEntity>>(emptyList()) }
     var showEntryForm by remember { mutableStateOf(false) }
+    var editingEntry by remember { mutableStateOf<PatientEntryEntity?>(null) }
+    var editingValues by remember { mutableStateOf<List<VariableValueEntity>>(emptyList()) }
+    var showDeleteConfirm by remember { mutableStateOf<PatientEntryEntity?>(null) }
+    var showLabelEditor by remember { mutableStateOf(false) }
+    var labelDraft by remember { mutableStateOf("") }
     var viewingEntry by remember { mutableStateOf<PatientEntryEntity?>(null) }
     var viewingValues by remember { mutableStateOf<List<VariableValueEntity>>(emptyList()) }
 
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     fun reload() {
         scope.launch {
@@ -93,6 +105,56 @@ fun SessionDetailScreen(
 
     LaunchedEffect(sessionId) { reload() }
 
+    showDeleteConfirm?.let { entryToDelete ->
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = null },
+            title = { Text("Delete entry?") },
+            text = { Text("Entry #${entryToDelete.sortOrder + 1} will be permanently removed.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    scope.launch {
+                        sessionRepository.deletePatientEntry(entryToDelete.id)
+                        showDeleteConfirm = null
+                        viewingEntry = null
+                        viewingValues = emptyList()
+                        reload()
+                    }
+                }) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = null }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showLabelEditor) {
+        AlertDialog(
+            onDismissRequest = { showLabelEditor = false },
+            title = { Text("Session label") },
+            text = {
+                OutlinedTextField(
+                    value = labelDraft,
+                    onValueChange = { labelDraft = it },
+                    label = { Text("Label") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    scope.launch {
+                        session?.let { sessionRepository.updateSession(it.copy(customLabel = labelDraft.trim())) }
+                        showLabelEditor = false
+                        reload()
+                    }
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLabelEditor = false }) { Text("Cancel") }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -103,6 +165,12 @@ fun SessionDetailScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = {
+                        labelDraft = session?.customLabel ?: ""
+                        showLabelEditor = true
+                    }) {
+                        Icon(Icons.Default.Edit, contentDescription = "Edit session label")
+                    }
                     IconButton(onClick = { onOpenSummary(sessionId) }) {
                         Icon(Icons.Default.Assessment, contentDescription = "Summary")
                     }
@@ -110,34 +178,53 @@ fun SessionDetailScreen(
             )
         },
         floatingActionButton = {
-            if (!showEntryForm && viewingEntry == null &&
+            if (!showEntryForm && editingEntry == null && viewingEntry == null &&
                 session?.status != ReportingSessionEntity.STATUS_COMPLETED
             ) {
-                FloatingActionButton(onClick = { showEntryForm = true }) {
+                FloatingActionButton(onClick = {
+                    editingEntry = null
+                    editingValues = emptyList()
+                    showEntryForm = true
+                }) {
                     Icon(Icons.Default.Add, contentDescription = "Add patient entry")
                 }
             }
         }
     ) { padding ->
         when {
-            showEntryForm -> {
+            showEntryForm || editingEntry != null -> {
                 PatientEntryForm(
                     sessionId = sessionId,
                     variables = variables,
                     codeOptions = codeOptions,
                     sessionRepository = sessionRepository,
+                    existingEntry = editingEntry,
+                    existingValues = editingValues,
                     modifier = Modifier.padding(padding),
-                    onCancel = { showEntryForm = false },
+                    onCancel = {
+                        showEntryForm = false
+                        editingEntry = null
+                        editingValues = emptyList()
+                    },
                     onSave = { visitType, patientKey, values ->
                         scope.launch {
-                            sessionRepository.addPatientEntry(
-                                sessionId = sessionId,
-                                visitType = visitType,
-                                patientKey = patientKey,
-                                sortOrder = entries.size,
-                                values = values
-                            )
+                            if (editingEntry != null) {
+                                sessionRepository.updatePatientEntryFull(
+                                    editingEntry!!.copy(visitType = visitType, patientKey = patientKey),
+                                    values
+                                )
+                            } else {
+                                sessionRepository.addPatientEntry(
+                                    sessionId = sessionId,
+                                    visitType = visitType,
+                                    patientKey = patientKey,
+                                    sortOrder = entries.size,
+                                    values = values
+                                )
+                            }
                             showEntryForm = false
+                            editingEntry = null
+                            editingValues = emptyList()
                             reload()
                         }
                     }
@@ -150,7 +237,15 @@ fun SessionDetailScreen(
                     values = viewingValues,
                     variables = variables,
                     codeOptions = codeOptions,
+                    canEdit = session?.status != ReportingSessionEntity.STATUS_COMPLETED,
                     modifier = Modifier.padding(padding),
+                    onEdit = {
+                        editingEntry = viewingEntry
+                        editingValues = viewingValues
+                        viewingEntry = null
+                        showEntryForm = true
+                    },
+                    onDelete = { showDeleteConfirm = viewingEntry },
                     onClose = {
                         viewingEntry = null
                         viewingValues = emptyList()
@@ -174,6 +269,7 @@ fun SessionDetailScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (session?.status != ReportingSessionEntity.STATUS_COMPLETED) {
                         TextButton(
                             onClick = {
@@ -190,6 +286,21 @@ fun SessionDetailScreen(
                             Icon(Icons.Default.Check, contentDescription = null)
                             Text("  Mark as Completed")
                         }
+                    }
+
+                    TextButton(onClick = {
+                        scope.launch {
+                            val text = buildSummaryText(session, register, entries, variables, codeOptions, sessionRepository)
+                            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, text)
+                            }
+                            context.startActivity(Intent.createChooser(sendIntent, "Share session summary"))
+                        }
+                    }) {
+                        Icon(Icons.Default.Share, contentDescription = null)
+                        Text("  Share")
+                    }
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -237,13 +348,49 @@ fun SessionDetailScreen(
     }
 }
 
+
+private suspend fun buildSummaryText(
+    session: ReportingSessionEntity?,
+    register: RegisterDefinitionEntity?,
+    entries: List<PatientEntryEntity>,
+    variables: List<VariableDefinitionEntity>,
+    codeOptions: Map<Long, List<CodeOptionEntity>>,
+    sessionRepository: SessionRepository
+): String {
+    val text = StringBuilder()
+    text.appendLine("AfyaReport – Session Summary")
+    text.appendLine("Register: ${register?.name ?: "—"}")
+    text.appendLine("Label: ${session?.customLabel?.ifBlank { "Untitled" } ?: "Untitled"}")
+    text.appendLine("Status: ${session?.status ?: "—"}")
+    text.appendLine("Total entries: ${entries.size}")
+    text.appendLine()
+    text.appendLine("Visit Type")
+    text.appendLine("  NEW: ${entries.count { it.visitType == VisitType.NEW }}")
+    text.appendLine("  RETURN: ${entries.count { it.visitType == VisitType.RETURN }}")
+    text.appendLine()
+    val allValues = mutableListOf<VariableValueEntity>()
+    entries.forEach { allValues.addAll(sessionRepository.getValuesForEntry(it.id)) }
+    variables.filter { it.type == VariableType.CODED }.forEach { variable ->
+        text.appendLine(variable.name)
+        codeOptions[variable.id].orEmpty().forEach { option ->
+            val count = allValues.count { it.variableDefinitionId == variable.id && it.value == option.code }
+            text.appendLine("  ${option.code} – ${option.label}: $count")
+        }
+        text.appendLine()
+    }
+    return text.toString()
+}
+
 @Composable
 private fun EntryDetailView(
     entry: PatientEntryEntity,
     values: List<VariableValueEntity>,
     variables: List<VariableDefinitionEntity>,
     codeOptions: Map<Long, List<CodeOptionEntity>>,
+    canEdit: Boolean,
     modifier: Modifier = Modifier,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
     onClose: () -> Unit
 ) {
     val valueMap = values.associateBy { it.variableDefinitionId }
@@ -285,6 +432,18 @@ private fun EntryDetailView(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+        if (canEdit) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(onClick = onEdit, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Default.Edit, contentDescription = null)
+                    Text("  Edit")
+                }
+                Button(onClick = onDelete, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Default.Delete, contentDescription = null)
+                    Text("  Delete")
+                }
+            }
+        }
         Button(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
             Text("Close")
         }
@@ -297,20 +456,27 @@ private fun PatientEntryForm(
     variables: List<VariableDefinitionEntity>,
     codeOptions: Map<Long, List<CodeOptionEntity>>,
     sessionRepository: SessionRepository,
+    existingEntry: PatientEntryEntity? = null,
+    existingValues: List<VariableValueEntity> = emptyList(),
     modifier: Modifier = Modifier,
     onCancel: () -> Unit,
     onSave: (VisitType, String?, List<VariableValueEntity>) -> Unit
 ) {
-    var visitType by remember { mutableStateOf(VisitType.NEW) }
-    var patientKey by remember { mutableStateOf("") }
+    val isEdit = existingEntry != null
+    var visitType by remember { mutableStateOf(existingEntry?.visitType ?: VisitType.NEW) }
+    var patientKey by remember { mutableStateOf(existingEntry?.patientKey ?: "") }
     var possibleMatches by remember { mutableStateOf<List<PatientEntryEntity>>(emptyList()) }
-    val values = remember { mutableStateMapOf<Long, String>() }
+    val values = remember {
+        mutableStateMapOf<Long, String>().apply {
+            existingValues.forEach { put(it.variableDefinitionId, it.value) }
+        }
+    }
 
     LaunchedEffect(patientKey) {
         possibleMatches = if (patientKey.isBlank()) {
             emptyList()
         } else {
-            sessionRepository.findPossibleMatches(sessionId, patientKey)
+            sessionRepository.findPossibleMatches(sessionId, patientKey).filter { it.id != existingEntry?.id }
         }
     }
 
@@ -321,7 +487,7 @@ private fun PatientEntryForm(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("New patient entry", style = MaterialTheme.typography.titleLarge)
+        Text(if (isEdit) "Edit patient entry" else "New patient entry", style = MaterialTheme.typography.titleLarge)
         Text("Visit type *", style = MaterialTheme.typography.labelLarge)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(
@@ -441,7 +607,7 @@ private fun PatientEntryForm(
                 onClick = {
                     val valueEntities = values.map { (variableId, value) ->
                         VariableValueEntity(
-                            patientEntryId = 0,
+                            patientEntryId = existingEntry?.id ?: 0,
                             variableDefinitionId = variableId,
                             value = value
                         )
@@ -458,7 +624,7 @@ private fun PatientEntryForm(
                 },
                 modifier = Modifier.weight(1f)
             ) {
-                Text("Save entry")
+                Text(if (isEdit) "Update entry" else "Save entry")
             }
         }
     }
