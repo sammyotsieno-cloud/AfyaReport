@@ -61,7 +61,10 @@ fun SessionSummaryScreen(
         sessionLabel = currentSession.customLabel
         registerName = registerRepository.getRegister(currentSession.registerDefinitionId)?.name.orEmpty()
         entries = sessionRepository.getEntries(sessionId)
-        variables = registerRepository.getVariables(currentSession.registerDefinitionId)
+        variables = registerRepository.getVariablesForVersion(
+            currentSession.registerDefinitionId,
+            currentSession.registerVersion
+        )
 
         val optionsMap = mutableMapOf<Long, List<CodeOptionEntity>>()
         variables.filter { it.type == VariableType.CODED }.forEach { variable ->
@@ -120,6 +123,32 @@ fun SessionSummaryScreen(
                         context.startActivity(Intent.createChooser(sendIntent, "Share session summary"))
                     }) {
                         Icon(Icons.Default.Share, contentDescription = "Share summary")
+                    }
+                    IconButton(onClick = {
+                        scope.launch {
+                            val currentSession = sessionRepository.getSession(sessionId) ?: return@launch
+                            val currentEntries = sessionRepository.getEntries(sessionId)
+                            val currentVariables = registerRepository.getVariablesForVersion(
+                                currentSession.registerDefinitionId,
+                                currentSession.registerVersion
+                            )
+                            val optionsMap = currentVariables
+                                .filter { it.type == VariableType.CODED }
+                                .associate { variable ->
+                                    variable.id to registerRepository.getCodeOptions(variable.id)
+                                }
+                            val valuesByEntry = currentEntries.associate { entry ->
+                                entry.id to sessionRepository.getValuesForEntry(entry.id)
+                            }
+                            val csv = buildSessionCsv(currentEntries, currentVariables, optionsMap, valuesByEntry)
+                            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/csv"
+                                putExtra(Intent.EXTRA_TEXT, csv)
+                            }
+                            context.startActivity(Intent.createChooser(sendIntent, "Export CSV"))
+                        }
+                    }) {
+                        Icon(Icons.Default.Share, contentDescription = "Export CSV")
                     }
                 }
             )

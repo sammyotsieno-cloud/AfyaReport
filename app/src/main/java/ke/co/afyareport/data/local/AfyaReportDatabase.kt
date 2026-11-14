@@ -5,6 +5,8 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import ke.co.afyareport.data.local.dao.RegisterDefinitionDao
 import ke.co.afyareport.data.local.dao.ReportingSessionDao
 import ke.co.afyareport.data.local.entity.CodeOptionEntity
@@ -23,17 +25,28 @@ import ke.co.afyareport.data.local.entity.VariableValueEntity
         PatientEntryEntity::class,
         VariableValueEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
 abstract class AfyaReportDatabase : RoomDatabase() {
-
     abstract fun registerDefinitionDao(): RegisterDefinitionDao
     abstract fun reportingSessionDao(): ReportingSessionDao
 
     companion object {
         const val DATABASE_NAME = "afyareport.db"
+
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE variable_definitions ADD COLUMN registerVersion INTEGER NOT NULL DEFAULT 1"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_variable_definitions_registerDefinitionId_registerVersion " +
+                        "ON variable_definitions(registerDefinitionId, registerVersion)"
+                )
+            }
+        }
 
         @Volatile
         private var INSTANCE: AfyaReportDatabase? = null
@@ -50,7 +63,7 @@ abstract class AfyaReportDatabase : RoomDatabase() {
                 AfyaReportDatabase::class.java,
                 DATABASE_NAME
             )
-                .fallbackToDestructiveMigration()
+                .addMigrations(MIGRATION_1_2)
                 .build()
         }
     }

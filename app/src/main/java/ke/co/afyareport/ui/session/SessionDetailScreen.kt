@@ -92,7 +92,10 @@ fun SessionDetailScreen(
             val currentSession = sessionRepository.getSession(sessionId) ?: return@launch
             session = currentSession
             register = registerRepository.getRegister(currentSession.registerDefinitionId)
-            val currentVariables = registerRepository.getVariables(currentSession.registerDefinitionId)
+            val currentVariables = registerRepository.getVariablesForVersion(
+                currentSession.registerDefinitionId,
+                currentSession.registerVersion
+            )
             variables = currentVariables
             val optionsMap = mutableMapOf<Long, List<CodeOptionEntity>>()
             currentVariables.filter { it.type == VariableType.CODED }.forEach { variable ->
@@ -300,6 +303,23 @@ fun SessionDetailScreen(
                     }) {
                         Icon(Icons.Default.Share, contentDescription = null)
                         Text("  Share")
+                    }
+
+                    TextButton(onClick = {
+                        scope.launch {
+                            val valuesByEntry = entries.associate { entry ->
+                                entry.id to sessionRepository.getValuesForEntry(entry.id)
+                            }
+                            val csv = buildSessionCsv(entries, variables, codeOptions, valuesByEntry)
+                            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/csv"
+                                putExtra(Intent.EXTRA_TEXT, csv)
+                            }
+                            context.startActivity(Intent.createChooser(sendIntent, "Export CSV"))
+                        }
+                    }) {
+                        Icon(Icons.Default.Share, contentDescription = null)
+                        Text("  Export CSV")
                     }
                     }
 
