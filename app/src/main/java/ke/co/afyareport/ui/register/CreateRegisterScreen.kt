@@ -180,7 +180,7 @@ fun CreateRegisterScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun VariableEditorCard(
+internal fun VariableEditorCard(
     draft: DraftVariable,
     canDelete: Boolean,
     onDelete: () -> Unit

@@ -18,6 +18,8 @@ import ke.co.afyareport.data.repository.SessionRepository
 import ke.co.afyareport.ui.home.HomeScreen
 import ke.co.afyareport.ui.navigation.Routes
 import ke.co.afyareport.ui.register.CreateRegisterScreen
+import ke.co.afyareport.ui.register.EditRegisterScreen
+import ke.co.afyareport.ui.register.RegisterDetailScreen
 import ke.co.afyareport.ui.register.RegisterListScreen
 import ke.co.afyareport.ui.session.CreateSessionScreen
 import ke.co.afyareport.ui.session.SessionDetailScreen
@@ -62,14 +64,46 @@ private fun AfyaReportNavHost(
             RegisterListScreen(
                 registerRepository = registerRepository,
                 onBack = { navController.popBackStack() },
-                onCreateRegister = { navController.navigate(Routes.CREATE_REGISTER) }
+                onCreateRegister = { navController.navigate(Routes.CREATE_REGISTER) },
+                onRegisterClick = { registerId ->
+                    navController.navigate(Routes.registerDetail(registerId))
+                }
             )
         }
         composable(Routes.CREATE_REGISTER) {
             CreateRegisterScreen(
                 registerRepository = registerRepository,
                 onBack = { navController.popBackStack() },
-                onRegisterCreated = { navController.popBackStack() }
+                onRegisterCreated = { registerId ->
+                    navController.popBackStack()
+                    navController.navigate(Routes.registerDetail(registerId))
+                }
+            )
+        }
+        composable(
+            route = Routes.REGISTER_DETAIL,
+            arguments = listOf(navArgument("registerId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val registerId = backStackEntry.arguments?.getLong("registerId")
+                ?: return@composable
+            RegisterDetailScreen(
+                registerId = registerId,
+                registerRepository = registerRepository,
+                onBack = { navController.popBackStack() },
+                onEdit = { id -> navController.navigate(Routes.editRegister(id)) }
+            )
+        }
+        composable(
+            route = Routes.EDIT_REGISTER,
+            arguments = listOf(navArgument("registerId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val registerId = backStackEntry.arguments?.getLong("registerId")
+                ?: return@composable
+            EditRegisterScreen(
+                registerId = registerId,
+                registerRepository = registerRepository,
+                onBack = { navController.popBackStack() },
+                onSaved = { navController.popBackStack() }
             )
         }
         composable(Routes.SESSION_LIST) {
@@ -104,9 +138,7 @@ private fun AfyaReportNavHost(
                 registerRepository = registerRepository,
                 sessionRepository = sessionRepository,
                 onBack = { navController.popBackStack() },
-                onOpenSummary = { id ->
-                    navController.navigate(Routes.sessionSummary(id))
-                }
+                onOpenSummary = { id -> navController.navigate(Routes.sessionSummary(id)) }
             )
         }
         composable(
