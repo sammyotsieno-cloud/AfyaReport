@@ -1,4 +1,6 @@
 package ke.co.afyareport
+import ke.co.afyareport.ui.theme.AfyaTheme
+import androidx.activity.enableEdgeToEdge
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -29,10 +31,11 @@ import ke.co.afyareport.ui.session.SessionSummaryScreen
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         val app = application as AfyaReportApp
         val container = app.container
         setContent {
-            MaterialTheme {
+            AfyaTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
