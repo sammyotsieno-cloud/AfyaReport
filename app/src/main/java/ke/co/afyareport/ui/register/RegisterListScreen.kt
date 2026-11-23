@@ -1,8 +1,6 @@
 package ke.co.afyareport.ui.register
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,17 +9,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.Card
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -30,8 +23,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import ke.co.afyareport.data.local.entity.RegisterDefinitionEntity
 import ke.co.afyareport.data.repository.RegisterRepository
+import ke.co.afyareport.ui.theme.AfyaTopBar
+import ke.co.afyareport.ui.theme.ChipTone
+import ke.co.afyareport.ui.theme.EmptyState
+import ke.co.afyareport.ui.theme.MarginCard
+import ke.co.afyareport.ui.theme.StatusChip
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegisterListScreen(
     registerRepository: RegisterRepository,
@@ -42,54 +39,31 @@ fun RegisterListScreen(
     val registers by registerRepository.observeAllRegisters().collectAsState(initial = emptyList())
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Registers") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                }
-            )
-        },
+        topBar = { AfyaTopBar(title = "Registers", onBack = onBack) },
         floatingActionButton = {
-            FloatingActionButton(onClick = onCreateRegister) {
-                Icon(Icons.Default.Add, contentDescription = "Create register")
-            }
+            ExtendedFloatingActionButton(
+                onClick = onCreateRegister,
+                icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                text = { Text("New register") }
+            )
         }
     ) { padding ->
         if (registers.isEmpty()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "No registers yet",
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    text = "Tap + to define your first register",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            EmptyState(
+                title = "No registers yet",
+                body = "A register is the list of columns you record for each patient, such as age, BP and diagnosis code.",
+                actionLabel = "Create your first register",
+                onAction = onCreateRegister,
+                modifier = Modifier.fillMaxSize().padding(padding)
+            )
         } else {
             LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentPadding = PaddingValues(16.dp),
+                modifier = Modifier.fillMaxSize().padding(padding),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(registers, key = { it.id }) { register ->
-                    RegisterCard(
-                        register = register,
-                        onClick = { onRegisterClick(register.id) }
-                    )
+                    RegisterCard(register) { onRegisterClick(register.id) }
                 }
             }
         }
@@ -97,37 +71,27 @@ fun RegisterListScreen(
 }
 
 @Composable
-private fun RegisterCard(
-    register: RegisterDefinitionEntity,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+private fun RegisterCard(register: RegisterDefinitionEntity, onClick: () -> Unit) {
+    MarginCard(onClick = onClick) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(
                 text = register.name,
-                style = MaterialTheme.typography.titleMedium
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f)
             )
-            if (register.description.isNotBlank()) {
-                Text(
-                    text = register.description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Row(
-                modifier = Modifier.padding(top = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Text(
-                    text = "v${register.version}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
+            StatusChip("v${register.version}", ChipTone.Neutral)
+        }
+        if (register.description.isNotBlank()) {
+            Text(
+                text = register.description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp)
+            )
         }
     }
 }
