@@ -1,4 +1,6 @@
 package ke.co.afyareport.ui.session
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
@@ -41,6 +43,7 @@ fun SessionListScreen(
 ) {
     val sessions by sessionRepository.observeAllSessions().collectAsState(initial = emptyList())
     Scaffold(
+        contentWindowInsets = WindowInsets.safeDrawing,
         topBar = { AfyaTopBar(title = "Reporting sessions", onBack = onBack) },
         floatingActionButton = {
             ExtendedFloatingActionButton(

@@ -2,32 +2,32 @@ package ke.co.afyareport.ui.register
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
-import ke.co.afyareport.ui.theme.Card
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import ke.co.afyareport.ui.theme.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -42,22 +42,42 @@ import ke.co.afyareport.data.local.VariableType
 import ke.co.afyareport.data.local.entity.CodeOptionEntity
 import ke.co.afyareport.data.local.entity.VariableDefinitionEntity
 import ke.co.afyareport.data.repository.RegisterRepository
+import ke.co.afyareport.ui.theme.AfyaTopBar
+import ke.co.afyareport.ui.theme.Card
 import kotlinx.coroutines.launch
 
-data class DraftCodeOption(
-    var code: String = "",
-    var label: String = ""
-)
+/** Every field is observable state, so typing redraws the screen immediately. */
+class DraftCodeOption(code: String = "", label: String = "") {
+    var code by mutableStateOf(code)
+    var label by mutableStateOf(label)
+}
 
-data class DraftVariable(
-    var name: String = "",
-    var type: VariableType = VariableType.TEXT,
-    var measurementInstructions: String = "",
-    var isRequired: Boolean = false,
+class DraftVariable(
+    name: String = "",
+    type: VariableType = VariableType.TEXT,
+    measurementInstructions: String = "",
+    isRequired: Boolean = false,
     val options: MutableList<DraftCodeOption> = mutableStateListOf()
-)
+) {
+    var name by mutableStateOf(name)
+    var type by mutableStateOf(type)
+    var measurementInstructions by mutableStateOf(measurementInstructions)
+    var isRequired by mutableStateOf(isRequired)
+}
 
-@OptIn(ExperimentalMaterial3Api::class)
+internal fun VariableType.friendlyName(): String = when (this) {
+    VariableType.TEXT -> "Words"
+    VariableType.NUMBER -> "Number"
+    VariableType.DATE -> "Date"
+    VariableType.BOOLEAN -> "Yes / No"
+    VariableType.CODED -> "A code from a list"
+    VariableType.VISIT_TYPE -> "First visit or revisit"
+}
+
+internal fun DraftVariable.hasNoValidChoices(): Boolean =
+    type == VariableType.CODED &&
+        options.none { it.code.isNotBlank() && it.label.isNotBlank() }
+
 @Composable
 fun CreateRegisterScreen(
     registerRepository: RegisterRepository,
@@ -77,65 +97,70 @@ fun CreateRegisterScreen(
         )
     }
     var isSaving by remember { mutableStateOf(false) }
+    var showErrors by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val scrollState = rememberScrollState()
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("New Register") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                }
-            )
-        }
+        contentWindowInsets = WindowInsets.safeDrawing,
+        topBar = { AfyaTopBar(title = "New register", onBack = onBack) }
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(scrollState)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("Register name *") },
+                label = { Text("Register name") },
+                placeholder = { Text("e.g. Diabetes & Hypertension Daily Register") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
             OutlinedTextField(
                 value = description,
                 onValueChange = { description = it },
-                label = { Text("Description (optional)") },
+                label = { Text("Notes (optional)") },
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 2
             )
-            Text("Variables", style = MaterialTheme.typography.titleMedium)
+
+            Text("Columns", style = MaterialTheme.typography.titleLarge)
+            Text(
+                "Add one column for each thing you write down for every patient, in the same order as your paper register.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
             variables.forEachIndexed { index, draft ->
                 VariableEditorCard(
                     draft = draft,
                     canDelete = draft.type != VariableType.VISIT_TYPE,
-                    onDelete = { variables.removeAt(index) }
+                    onDelete = { variables.removeAt(index) },
+                    showErrors = showErrors
                 )
             }
 
-            Button(
+            OutlinedButton(
                 onClick = { variables.add(DraftVariable()) },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(Icons.Default.Add, contentDescription = null)
-                Text("  Add variable")
+                Spacer(Modifier.width(8.dp))
+                Text("Add a column")
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
 
             Button(
                 onClick = {
                     if (name.isBlank() || isSaving) return@Button
+                    if (variables.any { it.hasNoValidChoices() }) {
+                        showErrors = true
+                        return@Button
+                    }
                     isSaving = true
                     scope.launch {
                         val prepared = variables.map { draft ->
@@ -172,38 +197,53 @@ fun CreateRegisterScreen(
                 modifier = Modifier.fillMaxWidth(),
                 enabled = name.isNotBlank() && !isSaving
             ) {
-                Text(if (isSaving) "Saving…" else "Create Register")
+                Text(if (isSaving) "Saving…" else "Save register")
             }
+            Spacer(Modifier.height(24.dp))
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun VariableEditorCard(
     draft: DraftVariable,
     canDelete: Boolean,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    showErrors: Boolean = false
 ) {
-    var typeExpanded by remember { mutableStateOf(false) }
+    if (draft.type == VariableType.VISIT_TYPE) {
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("First visit or revisit", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Added automatically, so patients who come back are counted as revisits.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        return
+    }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Row(
-                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (draft.type == VariableType.VISIT_TYPE) "Visit Type (system)" else "Variable",
-                    style = MaterialTheme.typography.titleSmall
+                    text = draft.name.ifBlank { "New column" },
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f)
                 )
                 if (canDelete) {
                     IconButton(onClick = onDelete) {
-                        Icon(Icons.Default.Delete, contentDescription = "Remove variable")
+                        Icon(Icons.Default.Delete, contentDescription = "Remove this column")
                     }
                 }
             }
@@ -211,65 +251,44 @@ internal fun VariableEditorCard(
             OutlinedTextField(
                 value = draft.name,
                 onValueChange = { draft.name = it },
-                label = { Text("Variable name") },
+                label = { Text("Column name") },
+                placeholder = { Text("e.g. Weight (kg), Diagnosis") },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                enabled = draft.type != VariableType.VISIT_TYPE
+                singleLine = true
             )
 
-            if (draft.type != VariableType.VISIT_TYPE) {
-                ExposedDropdownMenuBox(
-                    expanded = typeExpanded,
-                    onExpandedChange = { typeExpanded = it }
-                ) {
-                    OutlinedTextField(
-                        value = draft.type.name,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Type") },
-                        trailingIcon = {
-                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeExpanded)
-                        },
-                        modifier = Modifier.menuAnchor().fillMaxWidth()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = typeExpanded,
-                        onDismissRequest = { typeExpanded = false }
-                    ) {
-                        VariableType.entries
-                            .filter { it != VariableType.VISIT_TYPE }
-                            .forEach { type ->
-                                DropdownMenuItem(
-                                    text = { Text(type.name) },
-                                    onClick = {
-                                        draft.type = type
-                                        typeExpanded = false
-                                    }
-                                )
+            Text("What do you write in this column?", style = MaterialTheme.typography.labelLarge)
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                listOf(
+                    VariableType.TEXT,
+                    VariableType.NUMBER,
+                    VariableType.DATE,
+                    VariableType.BOOLEAN,
+                    VariableType.CODED
+                ).forEach { kind ->
+                    FilterChip(
+                        selected = draft.type == kind,
+                        onClick = {
+                            draft.type = kind
+                            if (kind == VariableType.CODED && draft.options.isEmpty()) {
+                                draft.options.add(DraftCodeOption())
                             }
-                    }
+                        },
+                        label = { Text(kind.friendlyName()) }
+                    )
                 }
             }
 
-            OutlinedTextField(
-                value = draft.measurementInstructions,
-                onValueChange = { draft.measurementInstructions = it },
-                label = { Text("Measurement instructions") },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 2
-            )
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(
-                    checked = draft.isRequired,
-                    onCheckedChange = { draft.isRequired = it },
-                    enabled = draft.type != VariableType.VISIT_TYPE
-                )
-                Text("Required")
-            }
-
             if (draft.type == VariableType.CODED) {
-                Text("Code options", style = MaterialTheme.typography.labelLarge)
+                Text(
+                    "Use this when your register writes a short letter or number that stands for something longer, like a = Newly diagnosed.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text("Choices", style = MaterialTheme.typography.labelLarge)
                 draft.options.forEachIndexed { optIndex, opt ->
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -279,27 +298,61 @@ internal fun VariableEditorCard(
                             value = opt.code,
                             onValueChange = { opt.code = it },
                             label = { Text("Code") },
-                            modifier = Modifier.weight(0.3f),
+                            modifier = Modifier.weight(0.35f),
                             singleLine = true
                         )
                         OutlinedTextField(
                             value = opt.label,
                             onValueChange = { opt.label = it },
-                            label = { Text("Label") },
-                            modifier = Modifier.weight(0.6f),
+                            label = { Text("What it means") },
+                            modifier = Modifier.weight(0.65f),
                             singleLine = true
                         )
                         IconButton(onClick = { draft.options.removeAt(optIndex) }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Remove option")
+                            Icon(Icons.Default.Delete, contentDescription = "Remove this choice")
                         }
                     }
                 }
-                Button(
+                if (showErrors && draft.hasNoValidChoices()) {
+                    Text(
+                        "Add at least one choice with a code and what it means.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                OutlinedButton(
                     onClick = { draft.options.add(DraftCodeOption()) },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Add code option")
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Add a choice")
                 }
+            }
+
+            OutlinedTextField(
+                value = draft.measurementInstructions,
+                onValueChange = { draft.measurementInstructions = it },
+                label = { Text("Hint for whoever enters the data (optional)") },
+                placeholder = { Text("e.g. Measure in kilograms") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 2
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Must be filled in for every patient",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                Switch(
+                    checked = draft.isRequired,
+                    onCheckedChange = { draft.isRequired = it }
+                )
             }
         }
     }

@@ -1,4 +1,6 @@
 package ke.co.afyareport.ui.session
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
 
 import android.content.Intent
 import androidx.compose.foundation.clickable
@@ -159,6 +161,7 @@ fun SessionDetailScreen(
     }
 
     Scaffold(
+        contentWindowInsets = WindowInsets.safeDrawing,
         topBar = {
             TopAppBar(
                 title = { Text(session?.customLabel?.ifBlank { "Session" } ?: "Session") },
@@ -353,7 +356,7 @@ fun SessionDetailScreen(
                                         )
                                         entry.patientKey?.let {
                                             Text(
-                                                text = "Key: $it",
+                                                text = "Patient no.: $it",
                                                 style = MaterialTheme.typography.bodySmall
                                             )
                                         }
@@ -423,9 +426,9 @@ private fun EntryDetailView(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("Entry #${entry.sortOrder + 1}", style = MaterialTheme.typography.titleLarge)
-        Text("Visit type: ${entry.visitType}", style = MaterialTheme.typography.bodyLarge)
+        Text("Visit: ${if (entry.visitType == VisitType.NEW) "First visit" else "Revisit"}", style = MaterialTheme.typography.bodyLarge)
         entry.patientKey?.let {
-            Text("Patient key: $it", style = MaterialTheme.typography.bodyMedium)
+            Text("Patient no.: $it", style = MaterialTheme.typography.bodyMedium)
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -508,25 +511,25 @@ private fun PatientEntryForm(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(if (isEdit) "Edit patient entry" else "New patient entry", style = MaterialTheme.typography.titleLarge)
-        Text("Visit type *", style = MaterialTheme.typography.labelLarge)
+        Text("Is this the first visit? *", style = MaterialTheme.typography.labelLarge)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(
                 selected = visitType == VisitType.NEW,
                 onClick = { visitType = VisitType.NEW },
-                label = { Text("NEW") }
+                label = { Text("First visit") }
             )
             FilterChip(
                 selected = visitType == VisitType.RETURN,
                 onClick = { visitType = VisitType.RETURN },
-                label = { Text("RETURN") }
+                label = { Text("Revisit") }
             )
         }
 
         OutlinedTextField(
             value = patientKey,
             onValueChange = { patientKey = it },
-            label = { Text("Patient key (optional – for matching returns)") },
-            placeholder = { Text("e.g. name + age or local ID") },
+            label = { Text("Patient number or initials (optional)") },
+            placeholder = { Text("e.g. 0123 or J.K.") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
@@ -535,7 +538,7 @@ private fun PatientEntryForm(
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     Text(
-                        "Possible previous entries in this session:",
+                        "This patient may already be recorded:",
                         style = MaterialTheme.typography.labelLarge
                     )
                     possibleMatches.forEach { match ->
@@ -548,7 +551,7 @@ private fun PatientEntryForm(
                         )
                     }
                     Text(
-                        text = "Tap a match to set visit type to RETURN",
+                        text = "Tap a match to mark this as a revisit",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

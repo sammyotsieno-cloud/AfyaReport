@@ -1,4 +1,6 @@
 package ke.co.afyareport.ui.session
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
 
 import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
@@ -85,6 +87,7 @@ fun SessionSummaryScreen(
     val returnCount = entries.count { it.visitType == VisitType.RETURN }
 
     Scaffold(
+        contentWindowInsets = WindowInsets.safeDrawing,
         topBar = {
             TopAppBar(
                 title = { Text("Session Summary") },

@@ -1,4 +1,6 @@
 package ke.co.afyareport.ui.register
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
@@ -39,6 +41,7 @@ fun RegisterListScreen(
     val registers by registerRepository.observeAllRegisters().collectAsState(initial = emptyList())
 
     Scaffold(
+        contentWindowInsets = WindowInsets.safeDrawing,
         topBar = { AfyaTopBar(title = "Registers", onBack = onBack) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
