@@ -70,7 +70,7 @@ internal fun VariableType.friendlyName(): String = when (this) {
     VariableType.NUMBER -> "Number"
     VariableType.DATE -> "Date"
     VariableType.BOOLEAN -> "Yes / No"
-    VariableType.CODED -> "A code from a list"
+    VariableType.CODED -> "Uses a key (codes)"
     VariableType.VISIT_TYPE -> "First visit or revisit"
 }
 
@@ -284,11 +284,11 @@ internal fun VariableEditorCard(
 
             if (draft.type == VariableType.CODED) {
                 Text(
-                    "Use this when your register writes a short letter or number that stands for something longer, like a = Newly diagnosed.",
+                    "The key lists each code your register uses and what it means, for example a = Newly diagnosed. When entering patients you pick a code, and the report reads it as its meaning.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Text("Choices", style = MaterialTheme.typography.labelLarge)
+                Text("Key", style = MaterialTheme.typography.labelLarge)
                 draft.options.forEachIndexed { optIndex, opt ->
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -315,7 +315,7 @@ internal fun VariableEditorCard(
                 }
                 if (showErrors && draft.hasNoValidChoices()) {
                     Text(
-                        "Add at least one choice with a code and what it means.",
+                        "Add at least one code to the key.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error
                     )
@@ -326,7 +326,7 @@ internal fun VariableEditorCard(
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Add a choice")
+                    Text("Add a code to the key")
                 }
             }
 
