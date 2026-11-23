@@ -19,6 +19,8 @@ import ke.co.afyareport.data.repository.RegisterRepository
 import ke.co.afyareport.data.repository.SessionRepository
 import ke.co.afyareport.ui.home.HomeScreen
 import ke.co.afyareport.ui.navigation.Routes
+import ke.co.afyareport.ui.report.ReportResultScreen
+import ke.co.afyareport.ui.report.ReportSetupScreen
 import ke.co.afyareport.ui.register.CreateRegisterScreen
 import ke.co.afyareport.ui.register.EditRegisterScreen
 import ke.co.afyareport.ui.register.RegisterDetailScreen
@@ -57,6 +59,32 @@ private fun AfyaReportNavHost(
 ) {
     val navController = rememberNavController()
     NavHost(navController = navController, startDestination = Routes.HOME) {
+        composable(
+            route = Routes.SESSION_REPORT,
+            arguments = listOf(navArgument("sessionId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val sessionId = backStackEntry.arguments?.getLong("sessionId")
+                ?: return@composable
+            ReportResultScreen(
+                sessionId = sessionId,
+                registerRepository = registerRepository,
+                sessionRepository = sessionRepository,
+                onBack = { navController.popBackStack() },
+                onSetupReport = { id -> navController.navigate(Routes.reportSetup(id)) }
+            )
+        }
+        composable(
+            route = Routes.REPORT_SETUP,
+            arguments = listOf(navArgument("registerId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val registerId = backStackEntry.arguments?.getLong("registerId")
+                ?: return@composable
+            ReportSetupScreen(
+                registerId = registerId,
+                registerRepository = registerRepository,
+                onBack = { navController.popBackStack() }
+            )
+        }
         composable(Routes.HOME) {
             HomeScreen(
                 onNavigateToRegisters = { navController.navigate(Routes.REGISTER_LIST) },
@@ -141,7 +169,7 @@ private fun AfyaReportNavHost(
                 registerRepository = registerRepository,
                 sessionRepository = sessionRepository,
                 onBack = { navController.popBackStack() },
-                onOpenSummary = { id -> navController.navigate(Routes.sessionSummary(id)) }
+                onOpenSummary = { id -> navController.navigate(Routes.sessionReport(id)) }
             )
         }
         composable(
