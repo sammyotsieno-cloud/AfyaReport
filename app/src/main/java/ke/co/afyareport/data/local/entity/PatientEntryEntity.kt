@@ -49,6 +49,12 @@ data class PatientEntryEntity(
     /** Order of entry within the session. */
     val sortOrder: Int = 0,
 
+    /** The day the patient was seen (epoch millis). Reports use this date. */
+    val visitDate: Long = System.currentTimeMillis(),
+
+    /** True when First visit/Revisit was chosen by hand. Otherwise it is worked out from the patient number. */
+    val visitTypeLocked: Boolean = false,
+
     val createdAt: Long = System.currentTimeMillis(),
 
     val updatedAt: Long = System.currentTimeMillis()

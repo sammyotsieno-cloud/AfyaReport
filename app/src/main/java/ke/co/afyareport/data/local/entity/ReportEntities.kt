@@ -46,11 +46,14 @@ data class ReportIndicatorEntity(
     val countMode: String = COUNT_PATIENTS,
     val matchAny: Boolean = false,
     val ageBands: String = "",
+    val scope: String = SCOPE_PERIOD,
     val conditionsJson: String = "[]",
     val sortOrder: Int = 0
 ) {
     companion object {
         const val COUNT_PATIENTS = "PATIENTS"
         const val COUNT_VISITS = "VISITS"
+        const val SCOPE_PERIOD = "PERIOD"
+        const val SCOPE_CUMULATIVE = "CUMULATIVE"
     }
 }

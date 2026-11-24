@@ -30,7 +30,7 @@ import ke.co.afyareport.data.local.entity.VariableValueEntity
         ReportIndicatorEntity::class,
         ReportSettingsEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -78,6 +78,16 @@ abstract class AfyaReportDatabase : RoomDatabase() {
             }
         }
 
+        /** Visit dates, automatic new/revisit, and cumulative report lines. */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE patient_entries ADD COLUMN visitDate INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("UPDATE patient_entries SET visitDate = createdAt")
+                db.execSQL("ALTER TABLE patient_entries ADD COLUMN visitTypeLocked INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE report_indicators ADD COLUMN scope TEXT NOT NULL DEFAULT 'PERIOD'")
+            }
+        }
+
         @Volatile
         private var INSTANCE: AfyaReportDatabase? = null
 
@@ -93,7 +103,7 @@ abstract class AfyaReportDatabase : RoomDatabase() {
                 AfyaReportDatabase::class.java,
                 DATABASE_NAME
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build()
         }
     }

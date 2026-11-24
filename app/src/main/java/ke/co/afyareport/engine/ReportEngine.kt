@@ -1,6 +1,7 @@
 package ke.co.afyareport.engine
 
 import ke.co.afyareport.data.local.VariableType
+import ke.co.afyareport.data.local.VisitType
 import ke.co.afyareport.data.local.entity.CodeOptionEntity
 import ke.co.afyareport.data.local.entity.PatientEntryEntity
 import ke.co.afyareport.data.local.entity.ReportIndicatorEntity
@@ -42,7 +43,12 @@ object ClauseJson {
     }
 }
 
-data class EntryData(val entryId: Long, val patientKey: String?, val values: Map<String, String>)
+data class EntryData(
+    val entryId: Long,
+    val patientKey: String?,
+    val visitDate: Long,
+    val values: Map<String, String>
+)
 
 data class ReportRow(
     val section: String,
@@ -55,45 +61,72 @@ data class ReportRow(
     val problem: String? = null
 )
 
-data class ReportResult(val rows: List<ReportRow>, val notes: List<String>)
+data class ReportResult(
+    val rows: List<ReportRow>,
+    val notes: List<String>,
+    val visits: Int = 0,
+    val patients: Int = 0
+)
 
 private data class Band(val label: String, val lo: Double, val hi: Double)
 
 private fun norm(s: String?): String = s?.trim()?.lowercase().orEmpty()
 
+private fun unitKey(e: EntryData): String =
+    e.patientKey?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: "#${e.entryId}"
+
 object ReportEngine {
 
-    /** Turns stored rows into column-name -> value maps for the session's register version. */
+    /**
+     * Turns every row of the register into column-name -> value maps.
+     * First visit or revisit is worked out from the patient number across the WHOLE register,
+     * unless the row was set by hand.
+     */
     fun buildEntries(
         entries: List<PatientEntryEntity>,
         valuesByEntry: Map<Long, List<VariableValueEntity>>,
         variables: List<VariableDefinitionEntity>
     ): List<EntryData> {
         val nameById = variables.associate { it.id to norm(it.name) }
-        val visitCols = variables.filter { it.type == VariableType.VISIT_TYPE }
-        return entries.map { e ->
-            val map = mutableMapOf<String, String>()
-            valuesByEntry[e.id].orEmpty().forEach { v ->
-                nameById[v.variableDefinitionId]?.let { map[it] = v.value }
+        val visitNames = variables.filter { it.type == VariableType.VISIT_TYPE }.map { norm(it.name) }.distinct()
+        val seen = mutableSetOf<String>()
+        return entries
+            .sortedWith(compareBy<PatientEntryEntity>({ it.visitDate }, { it.id }))
+            .map { e ->
+                val key = e.patientKey?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
+                val firstTime = key != null && seen.add(key)
+                val effective = when {
+                    e.visitTypeLocked || key == null -> e.visitType
+                    firstTime -> VisitType.NEW
+                    else -> VisitType.RETURN
+                }
+                val map = mutableMapOf<String, String>()
+                valuesByEntry[e.id].orEmpty().forEach { v ->
+                    nameById[v.variableDefinitionId]?.let { map[it] = v.value }
+                }
+                visitNames.forEach { map[it] = effective.name }
+                EntryData(e.id, e.patientKey, e.visitDate, map)
             }
-            visitCols.forEach { map[norm(it.name)] = e.visitType.name }
-            EntryData(e.id, e.patientKey, map)
-        }
     }
 
+    /** [from] and [to] are epoch millis, both inclusive. */
     fun generate(
         indicators: List<ReportIndicatorEntity>,
         settings: ReportSettingsEntity,
         variables: List<VariableDefinitionEntity>,
         codeOptions: Map<Long, List<CodeOptionEntity>>,
-        entries: List<EntryData>
+        entries: List<EntryData>,
+        from: Long,
+        to: Long
     ): ReportResult {
         val varByName = variables.associateBy { norm(it.name) }
+        val inPeriod = entries.filter { it.visitDate in from..to }
+        val upToEnd = entries.filter { it.visitDate <= to }
         val notes = mutableListOf<String>()
         if (settings.sexColumn.isBlank()) {
             notes += "No sex column is chosen in report setup, so only totals are shown."
         } else if (!varByName.containsKey(norm(settings.sexColumn))) {
-            notes += "The sex column \"${settings.sexColumn}\" is not in this session's register."
+            notes += "The sex column \"${settings.sexColumn}\" is not in this register."
         }
 
         val rows = mutableListOf<ReportRow>()
@@ -108,7 +141,8 @@ object ReportEngine {
                 )
                 return@forEach
             }
-            val matched = entries.filter { evaluate(clauses, ind.matchAny, it) }
+            val pool = if (ind.scope == ReportIndicatorEntity.SCOPE_CUMULATIVE) upToEnd else inPeriod
+            val matched = pool.filter { evaluate(clauses, ind.matchAny, it) }
             val (m, f, t) = tally(matched, ind.countMode, settings)
             rows += ReportRow(ind.section, ind.label, rule, m, f, t)
 
@@ -128,7 +162,12 @@ object ReportEngine {
                 }
             }
         }
-        return ReportResult(rows, notes.distinct())
+        return ReportResult(
+            rows = rows,
+            notes = notes.distinct(),
+            visits = inPeriod.size,
+            patients = inPeriod.map { unitKey(it) }.distinct().size
+        )
     }
 
     fun describeRule(
@@ -163,7 +202,7 @@ object ReportEngine {
         }
     }
 
-    /** Male, female, total. Patients are counted once each; visits count every entry. */
+    /** Male, female, total. Patients are counted once each; visits count every row. */
     private fun tally(
         rows: List<EntryData>,
         mode: String,
@@ -172,9 +211,7 @@ object ReportEngine {
         val units: List<EntryData> = if (mode == ReportIndicatorEntity.COUNT_VISITS) {
             rows
         } else {
-            rows.groupBy { r ->
-                r.patientKey?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: "#${r.entryId}"
-            }.values.map { it.first() }
+            rows.groupBy { unitKey(it) }.values.map { it.first() }
         }
         var male = 0
         var female = 0
@@ -209,10 +246,11 @@ object ReportEngine {
         codeOptions: Map<Long, List<CodeOptionEntity>>
     ): String {
         val unit = if (ind.countMode == ReportIndicatorEntity.COUNT_VISITS) "visits" else "patients"
-        if (clauses.isEmpty()) return "Counts all $unit in this session"
+        val where = if (ind.scope == ReportIndicatorEntity.SCOPE_CUMULATIVE) "up to the end date" else "in the report dates"
+        if (clauses.isEmpty()) return "Counts all $unit recorded $where"
         val joiner = if (ind.matchAny) " or " else " and "
         val body = clauses.joinToString(joiner) { describeClause(it, varByName[norm(it.column)], codeOptions) }
-        return "Counts $unit where $body"
+        return "Counts $unit where $body ($where)"
     }
 
     /** Reads the column's key so codes are shown with their meanings. */

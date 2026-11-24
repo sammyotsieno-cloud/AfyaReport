@@ -84,18 +84,20 @@ class IndicatorDraft(
     label: String = "",
     countMode: String = ReportIndicatorEntity.COUNT_PATIENTS,
     matchAny: Boolean = false,
-    ageBands: String = ""
+    ageBands: String = "",
+    scope: String = ReportIndicatorEntity.SCOPE_PERIOD
 ) {
     var section by mutableStateOf(section)
     var label by mutableStateOf(label)
     var countMode by mutableStateOf(countMode)
     var matchAny by mutableStateOf(matchAny)
     var ageBands by mutableStateOf(ageBands)
+    var scope by mutableStateOf(scope)
     val clauses = mutableStateListOf<DraftClause>()
 }
 
 private fun ReportIndicatorEntity.toDraft(): IndicatorDraft =
-    IndicatorDraft(id, sortOrder, section, label, countMode, matchAny, ageBands).also { d ->
+    IndicatorDraft(id, sortOrder, section, label, countMode, matchAny, ageBands, scope).also { d ->
         ClauseJson.decode(conditionsJson).forEach { d.clauses.add(DraftClause(it.column, it.op, it.values)) }
     }
 
@@ -107,6 +109,7 @@ private fun IndicatorDraft.toEntity(registerId: Long) = ReportIndicatorEntity(
     countMode = countMode,
     matchAny = matchAny,
     ageBands = ageBands.trim(),
+    scope = scope,
     conditionsJson = ClauseJson.encode(clauses.map { Clause(it.column, it.op, it.values.map { v -> v.trim() }) }),
     sortOrder = sortOrder
 )
@@ -400,6 +403,20 @@ private fun IndicatorEditor(
                 selected = draft.countMode == ReportIndicatorEntity.COUNT_VISITS,
                 onClick = { draft.countMode = ReportIndicatorEntity.COUNT_VISITS },
                 label = { Text("Visits (every entry)") }
+            )
+        }
+
+        Text("Which patients?", style = MaterialTheme.typography.labelLarge)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(
+                selected = draft.scope == ReportIndicatorEntity.SCOPE_PERIOD,
+                onClick = { draft.scope = ReportIndicatorEntity.SCOPE_PERIOD },
+                label = { Text("Seen in the report dates") }
+            )
+            FilterChip(
+                selected = draft.scope == ReportIndicatorEntity.SCOPE_CUMULATIVE,
+                onClick = { draft.scope = ReportIndicatorEntity.SCOPE_CUMULATIVE },
+                label = { Text("Everyone up to the end date") }
             )
         }
 
