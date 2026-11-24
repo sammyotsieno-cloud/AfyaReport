@@ -32,6 +32,7 @@ import ke.co.afyareport.ui.session.SessionDetailScreen
 import ke.co.afyareport.ui.session.SessionListScreen
 import ke.co.afyareport.ui.session.SessionSummaryScreen
 import ke.co.afyareport.ui.theme.AfyaTheme
+import ke.co.afyareport.ui.tools.ToolsScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -70,7 +71,18 @@ private fun AfyaReportNavHost(
                 registerRepository = registerRepository,
                 onOpenRegister = { id -> navController.navigate(Routes.registerBook(id)) },
                 onNewRegister = { navController.navigate(Routes.CREATE_REGISTER) },
-                onOlderSessions = { navController.navigate(Routes.SESSION_LIST) }
+                onOlderSessions = { navController.navigate(Routes.SESSION_LIST) },
+                onTools = { navController.navigate(Routes.TOOLS) }
+            )
+        }
+        composable(Routes.TOOLS) {
+            ToolsScreen(
+                registerRepository = registerRepository,
+                onBack = { navController.popBackStack() },
+                onImported = { id ->
+                    navController.popBackStack()
+                    navController.navigate(Routes.registerBook(id))
+                }
             )
         }
         composable(Routes.REGISTER_LIST) {

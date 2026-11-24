@@ -38,7 +38,8 @@ fun HomeScreen(
     registerRepository: RegisterRepository,
     onOpenRegister: (Long) -> Unit,
     onNewRegister: () -> Unit,
-    onOlderSessions: () -> Unit
+    onOlderSessions: () -> Unit,
+    onTools: () -> Unit
 ) {
     val registers by registerRepository.observeAllRegisters().collectAsState(initial = emptyList())
     Scaffold(
@@ -109,7 +110,10 @@ fun HomeScreen(
                 }
             }
             item {
-                TextButton(onClick = onOlderSessions) { Text("Earlier batches (old screens)") }
+                Column {
+                    TextButton(onClick = onTools) { Text("Backup, restore and sharing") }
+                    TextButton(onClick = onOlderSessions) { Text("Earlier batches (old screens)") }
+                }
             }
         }
     }

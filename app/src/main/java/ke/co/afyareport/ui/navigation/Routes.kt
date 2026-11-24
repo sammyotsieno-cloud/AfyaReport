@@ -2,6 +2,7 @@ package ke.co.afyareport.ui.navigation
 
 object Routes {
     const val HOME = "home"
+    const val TOOLS = "tools"
     const val REGISTER_BOOK = "registers/{registerId}/book"
     const val ENTRY = "registers/{registerId}/entry/{entryId}"
     const val REGISTER_REPORT = "registers/{registerId}/report"
