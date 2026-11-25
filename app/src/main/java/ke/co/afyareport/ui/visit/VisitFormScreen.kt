@@ -21,15 +21,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
+import ke.co.afyareport.ui.theme.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import ke.co.afyareport.ui.theme.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -60,7 +64,7 @@ import ke.co.afyareport.ui.common.DatePickDialog
 import ke.co.afyareport.ui.common.MultiChoice
 import ke.co.afyareport.ui.common.NumberField
 import ke.co.afyareport.ui.common.Notice
-import ke.co.afyareport.ui.common.SectionTitle
+import ke.co.afyareport.ui.theme.SectionHeader
 import ke.co.afyareport.ui.common.SingleChoice
 import ke.co.afyareport.ui.theme.AfyaTopBar
 import kotlinx.coroutines.launch
@@ -222,6 +226,41 @@ fun VisitFormScreen(
 
     Scaffold(
         contentWindowInsets = WindowInsets.safeDrawing,
+        bottomBar = {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                shadowElevation = 8.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .windowInsetsPadding(
+                            WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom)
+                        )
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    if (existing == null) {
+                        OutlinedButton(
+                            onClick = { save(false) },
+                            enabled = !saving,
+                            modifier = Modifier.weight(1f)
+                        ) { Text("Save and close") }
+                        Button(
+                            onClick = { save(true) },
+                            enabled = !saving,
+                            modifier = Modifier.weight(1.4f)
+                        ) { Text("Save and next") }
+                    } else {
+                        Button(
+                            onClick = { save(false) },
+                            enabled = !saving,
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("Save changes") }
+                    }
+                }
+            }
+        },
         topBar = {
             AfyaTopBar(
                 title = if (existing != null) "Edit visit" else "Add a visit",
@@ -318,7 +357,7 @@ fun VisitFormScreen(
                 )
             }
 
-            SectionTitle("Patient")
+            SectionHeader("Patient")
             NumberField("Age (years)" + star(FormField.AGE), form.age, { form.age = it }, errors[FormField.AGE], decimal = false)
             SingleChoice("Sex" + star(FormField.SEX), Keys.sex, form.sex, { form.sex = it }, errors[FormField.SEX])
             NumberField(
@@ -326,7 +365,7 @@ fun VisitFormScreen(
                 { form.visitNo = it; visitNoTouched = true }, errors[FormField.VISIT_NO], decimal = false
             )
 
-            SectionTitle("Measurements")
+            SectionHeader("Measurements")
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 NumberField("Weight (kg)" + star(FormField.WEIGHT), form.weight, { form.weight = it }, errors[FormField.WEIGHT], modifier = Modifier.weight(1f))
                 NumberField("Height (cm)" + star(FormField.HEIGHT), form.height, { form.height = it }, errors[FormField.HEIGHT], modifier = Modifier.weight(1f))
@@ -350,7 +389,7 @@ fun VisitFormScreen(
                 }
             }
 
-            SectionTitle("Condition")
+            SectionHeader("Condition")
             SingleChoice(
                 "Hypertension, diabetes or both" + star(FormField.CONDITION), Keys.condition, form.condition,
                 { c ->
@@ -368,7 +407,7 @@ fun VisitFormScreen(
                 { form.diagnosis = it }, errors[FormField.DIAGNOSIS], showCode = true
             )
 
-            SectionTitle("Tests")
+            SectionHeader("Tests")
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     NumberField("RBS (mmol/L)" + star(FormField.BLOOD_SUGAR), form.rbs, { form.rbs = it }, errors[FormField.BLOOD_SUGAR]?.let { " " }, modifier = Modifier.weight(1f))
@@ -380,7 +419,7 @@ fun VisitFormScreen(
             }
             NumberField("HbA1c (%)" + star(FormField.HBA1C), form.hba1c, { form.hba1c = it }, errors[FormField.HBA1C])
 
-            SectionTitle("Treatment and complications")
+            SectionHeader("Treatment and complications")
             MultiChoice(
                 "Treatment" + star(FormField.TREATMENT), Keys.treatment, form.treatment,
                 { toggle(form.treatment, it) }, errors[FormField.TREATMENT], showCode = true
@@ -413,7 +452,7 @@ fun VisitFormScreen(
             }
 
             if (form.hasDiabetes) {
-                SectionTitle("Diabetic foot")
+                SectionHeader("Diabetic foot")
                 SingleChoice(
                     "Screened for diabetic foot" + star(FormField.FOOT_SCREENING), Keys.yesNo, form.footScreened,
                     { form.footScreened = it }, errors[FormField.FOOT_SCREENING]
@@ -433,7 +472,7 @@ fun VisitFormScreen(
                 }
             }
 
-            SectionTitle("TB and insurance")
+            SectionHeader("TB and insurance")
             SingleChoice(
                 "Screened for TB" + star(FormField.TB_SCREENING), Keys.yesNo, form.tbScreened,
                 { form.tbScreened = it }, errors[FormField.TB_SCREENING]
@@ -449,19 +488,6 @@ fun VisitFormScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(Modifier.height(8.dp))
-            if (existing == null) {
-                Button(onClick = { save(true) }, enabled = !saving, modifier = Modifier.fillMaxWidth()) {
-                    Text("Save and add next")
-                }
-                OutlinedButton(onClick = { save(false) }, enabled = !saving, modifier = Modifier.fillMaxWidth()) {
-                    Text("Save and close")
-                }
-            } else {
-                Button(onClick = { save(false) }, enabled = !saving, modifier = Modifier.fillMaxWidth()) {
-                    Text("Save changes")
-                }
-            }
             Spacer(Modifier.height(24.dp))
         }
     }

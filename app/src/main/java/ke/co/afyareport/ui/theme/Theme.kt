@@ -47,10 +47,10 @@ private val DarkScheme = darkColorScheme(
 )
 
 private val AfyaShapes = Shapes(
-    extraSmall = RoundedCornerShape(4.dp),
-    small = RoundedCornerShape(6.dp),
-    medium = RoundedCornerShape(10.dp),
-    large = RoundedCornerShape(16.dp),
+    extraSmall = RoundedCornerShape(10.dp),
+    small = RoundedCornerShape(10.dp),
+    medium = RoundedCornerShape(14.dp),
+    large = RoundedCornerShape(20.dp),
     extraLarge = RoundedCornerShape(24.dp)
 )
 

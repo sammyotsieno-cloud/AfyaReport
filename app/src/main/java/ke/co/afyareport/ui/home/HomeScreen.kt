@@ -11,9 +11,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -24,6 +22,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import ke.co.afyareport.data.BackupManager
@@ -33,9 +32,16 @@ import ke.co.afyareport.domain.asDate
 import ke.co.afyareport.domain.dayFormat
 import ke.co.afyareport.domain.registerList
 import ke.co.afyareport.ui.common.Notice
+import ke.co.afyareport.ui.theme.Button
 import ke.co.afyareport.ui.theme.Card
+import ke.co.afyareport.ui.theme.HeroCard
+import ke.co.afyareport.ui.theme.HeroStat
 import ke.co.afyareport.ui.theme.MarginCard
+import ke.co.afyareport.ui.theme.OutlinedButton
+import ke.co.afyareport.ui.theme.SectionHeader
 import java.text.DateFormat
+import java.time.LocalTime
+import java.time.YearMonth
 import java.util.Date
 
 @Composable
@@ -44,6 +50,7 @@ fun HomeScreen(
     drafts: DraftStore,
     onContinueDraft: () -> Unit,
     onAddVisit: () -> Unit,
+    onReport: () -> Unit,
     onBook: () -> Unit,
     onBackup: () -> Unit
 ) {
@@ -54,7 +61,17 @@ fun HomeScreen(
     var confirmDiscard by remember { mutableStateOf(false) }
     val lastBackup = remember { BackupManager.lastBackup(context) }
     val weekMs = 7L * 24 * 60 * 60 * 1000
+    val thisMonth = remember { YearMonth.now() }
+    val monthVisits = remember(visits) { visits.count { YearMonth.from(it.visitDate.asDate()) == thisMonth } }
     val lastVisit = visits.maxOfOrNull { it.visitDate }?.asDate()?.format(dayFormat)
+    val greeting = remember {
+        val h = LocalTime.now().hour
+        when {
+            h < 12 -> "Good morning"
+            h < 17 -> "Good afternoon"
+            else -> "Good evening"
+        }
+    }
 
     if (confirmDiscard) {
         AlertDialog(
@@ -74,15 +91,38 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("AfyaReport", style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.primary)
-            Text(
-                "${patients.size} patients enrolled  •  ${visits.size} visits recorded",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            HeroCard {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        greeting,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color.White.copy(alpha = 0.8f)
+                    )
+                    Text(
+                        "Diabetes and Hypertension",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = Color.White
+                    )
+                    Text(
+                        "MOH 222 register" + (if (lastVisit != null) "  •  last visit $lastVisit" else ""),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.78f)
+                    )
+                }
+                Row(Modifier.fillMaxWidth()) {
+                    HeroStat(patients.size.toString(), "Patients", Modifier.weight(1f))
+                    HeroStat(monthVisits.toString(), "Visits this month", Modifier.weight(1f))
+                    HeroStat(visits.size.toString(), "All visits", Modifier.weight(1f))
+                }
+            }
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(onClick = onAddVisit, modifier = Modifier.weight(1f)) { Text("Add a visit") }
+                OutlinedButton(onClick = onReport, modifier = Modifier.weight(1f)) { Text("Monthly report") }
+            }
 
             if (visits.isNotEmpty() && System.currentTimeMillis() - lastBackup > weekMs) {
                 Notice(
@@ -92,11 +132,11 @@ fun HomeScreen(
                 )
             }
 
-            Text("Continue where you left off", style = MaterialTheme.typography.titleMedium)
+            SectionHeader("Continue where you left off")
             val d = draft
             if (d != null) {
                 Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("Paused entry", style = MaterialTheme.typography.titleSmall)
                         Text(
                             "Patient ${d.patientNo.ifBlank { "(number not entered yet)" }}  •  saved " +
@@ -120,25 +160,19 @@ fun HomeScreen(
                 )
             }
 
-            Text("Registers in use", style = MaterialTheme.typography.titleMedium)
+            SectionHeader("Registers in use")
             registerList.forEach { r ->
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("${r.name} (${r.code})", style = MaterialTheme.typography.titleSmall)
-                        Text(
-                            "${patients.size} patients  •  ${visits.size} visits" +
-                                (if (lastVisit != null) "  •  last visit $lastVisit" else ""),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = onAddVisit, modifier = Modifier.weight(1f)) { Text("Add a visit") }
-                            OutlinedButton(onClick = onBook, modifier = Modifier.weight(1f)) { Text("Register book") }
-                        }
-                    }
+                MarginCard(onClick = onBook) {
+                    Text("${r.name} (${r.code})", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "${patients.size} patients  •  ${visits.size} visits. Tap to open the register book.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 
+            SectionHeader("Safekeeping")
             MarginCard(onClick = onBackup) {
                 Text("Backup and restore", style = MaterialTheme.typography.titleMedium)
                 Text(

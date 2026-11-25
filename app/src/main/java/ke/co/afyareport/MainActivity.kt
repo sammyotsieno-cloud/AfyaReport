@@ -5,9 +5,11 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,10 +18,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -27,8 +31,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.navigation.NavType
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -83,6 +88,10 @@ private val tabOf = mapOf(
     "reports" to "reports", "report" to "reports", "counts" to "reports"
 )
 
+private val roots = setOf("home", "collect", "reports")
+
+private fun isRootSwitch(a: String?, b: String?) = a in roots && b in roots
+
 private fun visitRoute(entryId: Long, patientNo: String = "") =
     "visit/$entryId?patientNo=${Uri.encode(patientNo)}"
 
@@ -92,29 +101,40 @@ private fun AppNav(repo: Repo, prefs: RegisterPrefs, drafts: DraftStore) {
     val backStack by nav.currentBackStackEntryAsState()
     val route = backStack?.destination?.route
     val selected = tabOf[route]
+    val scheme = MaterialTheme.colorScheme
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             if (selected != null) {
-                NavigationBar {
-                    tabs.forEach { t ->
-                        NavigationBarItem(
-                            selected = selected == t.route,
-                            onClick = {
-                                if (selected == t.route) {
-                                    if (route != t.route) nav.popBackStack(t.route, false)
-                                } else {
-                                    nav.navigate(t.route) {
-                                        popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                                        launchSingleTop = true
-                                        restoreState = true
+                Column {
+                    HorizontalDivider(color = scheme.outlineVariant)
+                    NavigationBar(containerColor = scheme.surfaceContainerLowest, tonalElevation = 0.dp) {
+                        tabs.forEach { t ->
+                            NavigationBarItem(
+                                selected = selected == t.route,
+                                onClick = {
+                                    if (selected == t.route) {
+                                        if (route != t.route) nav.popBackStack(t.route, false)
+                                    } else {
+                                        nav.navigate(t.route) {
+                                            popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
                                     }
-                                }
-                            },
-                            icon = { Icon(t.icon, contentDescription = null) },
-                            label = { Text(t.label) }
-                        )
+                                },
+                                icon = { Icon(t.icon, contentDescription = null) },
+                                label = { Text(t.label) },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = scheme.primary,
+                                    selectedTextColor = scheme.primary,
+                                    indicatorColor = scheme.primaryContainer,
+                                    unselectedIconColor = scheme.onSurfaceVariant,
+                                    unselectedTextColor = scheme.onSurfaceVariant
+                                )
+                            )
+                        }
                     }
                 }
             }
@@ -124,10 +144,42 @@ private fun AppNav(repo: Repo, prefs: RegisterPrefs, drafts: DraftStore) {
             navController = nav,
             startDestination = "home",
             modifier = Modifier.padding(inner).consumeWindowInsets(inner),
-            enterTransition = { fadeIn(tween(140)) },
-            exitTransition = { fadeOut(tween(90)) },
-            popEnterTransition = { fadeIn(tween(140)) },
-            popExitTransition = { fadeOut(tween(90)) }
+            enterTransition = {
+                if (isRootSwitch(initialState.destination.route, targetState.destination.route)) {
+                    fadeIn(tween(160))
+                } else {
+                    slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(260)) +
+                        fadeIn(tween(260))
+                }
+            },
+            exitTransition = {
+                if (isRootSwitch(initialState.destination.route, targetState.destination.route)) {
+                    fadeOut(tween(100))
+                } else {
+                    slideOutOfContainer(
+                        AnimatedContentTransitionScope.SlideDirection.Left, tween(260),
+                        targetOffset = { it / 5 }
+                    ) + fadeOut(tween(200))
+                }
+            },
+            popEnterTransition = {
+                if (isRootSwitch(initialState.destination.route, targetState.destination.route)) {
+                    fadeIn(tween(160))
+                } else {
+                    slideIntoContainer(
+                        AnimatedContentTransitionScope.SlideDirection.Right, tween(260),
+                        initialOffset = { it / 5 }
+                    ) + fadeIn(tween(260))
+                }
+            },
+            popExitTransition = {
+                if (isRootSwitch(initialState.destination.route, targetState.destination.route)) {
+                    fadeOut(tween(100))
+                } else {
+                    slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(260)) +
+                        fadeOut(tween(200))
+                }
+            }
         ) {
             composable("home") {
                 HomeScreen(
@@ -135,6 +187,7 @@ private fun AppNav(repo: Repo, prefs: RegisterPrefs, drafts: DraftStore) {
                     drafts = drafts,
                     onContinueDraft = { nav.navigate(visitRoute(0L)) },
                     onAddVisit = { nav.navigate(visitRoute(0L)) },
+                    onReport = { nav.navigate("report") },
                     onBook = { nav.navigate("book") },
                     onBackup = { nav.navigate("backup") }
                 )
