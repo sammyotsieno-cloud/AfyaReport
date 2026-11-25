@@ -33,6 +33,7 @@ import ke.co.afyareport.data.MonthCountsEntity
 import ke.co.afyareport.data.Repo
 import ke.co.afyareport.domain.monthFormat
 import ke.co.afyareport.ui.common.NumberField
+import ke.co.afyareport.ui.common.MonthSelector
 import ke.co.afyareport.ui.theme.AfyaTopBar
 import ke.co.afyareport.ui.theme.Card
 import kotlinx.coroutines.launch
@@ -100,19 +101,7 @@ fun CountsScreen(repo: Repo, onBack: () -> Unit) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = { month = month.minusMonths(1) }) {
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous month")
-                }
-                Text(month.format(monthFormat), style = MaterialTheme.typography.titleMedium)
-                IconButton(onClick = { month = month.plusMonths(1) }) {
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next month")
-                }
-            }
+            MonthSelector(month = month, onChange = { month = it })
             countLines.forEach { (key, label) ->
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

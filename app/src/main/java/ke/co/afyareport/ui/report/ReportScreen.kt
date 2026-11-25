@@ -55,6 +55,7 @@ import ke.co.afyareport.domain.dayFormat
 import ke.co.afyareport.domain.monthFormat
 import ke.co.afyareport.ui.common.DatePickDialog
 import ke.co.afyareport.ui.common.Notice
+import ke.co.afyareport.ui.common.MonthSelector
 import ke.co.afyareport.ui.theme.AfyaTopBar
 import ke.co.afyareport.ui.theme.EmptyState
 import ke.co.afyareport.ui.theme.NumeralStyle
@@ -133,22 +134,13 @@ fun ReportScreen(repo: Repo, onBack: () -> Unit, onCounts: () -> Unit) {
         ) {
             message?.let { Notice(it) }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = { month = month.minusMonths(1); custom = false }) {
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous month")
-                }
-                Text(
-                    if (custom) "Custom dates" else month.format(monthFormat),
-                    style = MaterialTheme.typography.titleLarge
-                )
-                IconButton(onClick = { month = month.plusMonths(1); custom = false }) {
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next month")
-                }
-            }
+            val visitMonths = remember(visits) { visits.map { YearMonth.from(it.visitDate.asDate()) }.toSet() }
+            MonthSelector(
+                month = month,
+                onChange = { month = it; custom = false },
+                monthsWithData = visitMonths,
+                label = if (custom) "Custom dates" else null
+            )
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
                     selected = !custom,

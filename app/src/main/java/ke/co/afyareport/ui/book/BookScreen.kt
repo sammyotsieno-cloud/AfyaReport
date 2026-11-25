@@ -12,13 +12,10 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -37,12 +34,12 @@ import androidx.compose.ui.unit.dp
 import ke.co.afyareport.data.Repo
 import ke.co.afyareport.data.VisitEntity
 import ke.co.afyareport.domain.asDate
-import ke.co.afyareport.domain.monthFormat
+import ke.co.afyareport.ui.common.MonthSelector
 import ke.co.afyareport.ui.theme.AfyaTopBar
 import ke.co.afyareport.ui.theme.EmptyState
 import java.time.YearMonth
 
-/** The register as one continuous book, browsed month by month. */
+/** The register as one continuous book, browsed month by month with the calendar picker. */
 @Composable
 fun BookScreen(repo: Repo, onBack: () -> Unit, onOpenVisit: (Long) -> Unit, onAdd: () -> Unit) {
     val patients by repo.dao.observePatients().collectAsState(initial = emptyList())
@@ -59,6 +56,7 @@ fun BookScreen(repo: Repo, onBack: () -> Unit, onOpenVisit: (Long) -> Unit, onAd
     }
 
     val byId = remember(patients) { patients.associateBy { it.id } }
+    val visitMonths = remember(visits) { visits.map { YearMonth.from(it.visitDate.asDate()) }.toSet() }
     val shown = remember(visits, byId, query, month) {
         visits.filter { v ->
             val ym = YearMonth.from(v.visitDate.asDate())
@@ -69,6 +67,7 @@ fun BookScreen(repo: Repo, onBack: () -> Unit, onOpenVisit: (Long) -> Unit, onAd
         }.sortedWith(compareByDescending<VisitEntity> { it.visitDate }.thenByDescending { it.id })
     }
     val patientCount = remember(shown) { shown.map { it.patientId }.distinct().size }
+    val m = month
 
     Scaffold(
         contentWindowInsets = WindowInsets.safeDrawing,
@@ -86,22 +85,21 @@ fun BookScreen(repo: Repo, onBack: () -> Unit, onOpenVisit: (Long) -> Unit, onAd
             contentPadding = PaddingValues(bottom = 96.dp)
         ) {
             item {
-                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(onClick = { month = (month ?: YearMonth.now()).minusMonths(1) }) {
-                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous month")
+                Column(
+                    Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (m == null) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("All dates", style = MaterialTheme.typography.titleMedium)
+                            TextButton(onClick = { month = YearMonth.now() }) { Text("Pick a month") }
                         }
-                        Text(
-                            month?.format(monthFormat) ?: "All dates",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        IconButton(onClick = { month = (month ?: YearMonth.now()).plusMonths(1) }) {
-                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next month")
-                        }
+                    } else {
+                        MonthSelector(month = m, onChange = { month = it }, monthsWithData = visitMonths)
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -113,8 +111,8 @@ fun BookScreen(repo: Repo, onBack: () -> Unit, onOpenVisit: (Long) -> Unit, onAd
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        TextButton(onClick = { month = if (month == null) YearMonth.now() else null }) {
-                            Text(if (month == null) "This month" else "Show all")
+                        if (m != null) {
+                            TextButton(onClick = { month = null }) { Text("Show all dates") }
                         }
                     }
                     OutlinedTextField(
@@ -130,7 +128,7 @@ fun BookScreen(repo: Repo, onBack: () -> Unit, onOpenVisit: (Long) -> Unit, onAd
                 item {
                     EmptyState(
                         title = "No visits here",
-                        body = "Nothing recorded for these dates. Use the arrows to change month, or add a visit.",
+                        body = "Nothing recorded for these dates. Open the calendar to pick another month or year, or add a visit.",
                         actionLabel = "Add a visit",
                         onAction = onAdd
                     )
