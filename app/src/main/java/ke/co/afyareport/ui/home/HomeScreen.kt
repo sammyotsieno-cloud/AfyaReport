@@ -2,8 +2,6 @@ package ke.co.afyareport.ui.home
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,109 +9,75 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.Icon
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import ke.co.afyareport.data.repository.RegisterRepository
-import ke.co.afyareport.ui.theme.ChipTone
-import ke.co.afyareport.ui.theme.EmptyState
+import ke.co.afyareport.data.Repo
 import ke.co.afyareport.ui.theme.MarginCard
-import ke.co.afyareport.ui.theme.StatusChip
 
 @Composable
 fun HomeScreen(
-    registerRepository: RegisterRepository,
-    onOpenRegister: (Long) -> Unit,
-    onNewRegister: () -> Unit,
-    onOlderSessions: () -> Unit,
-    onTools: () -> Unit
+    repo: Repo,
+    onAddVisit: () -> Unit,
+    onBook: () -> Unit,
+    onPatients: () -> Unit,
+    onSettings: () -> Unit
 ) {
-    val registers by registerRepository.observeAllRegisters().collectAsState(initial = emptyList())
-    Scaffold(
-        contentWindowInsets = WindowInsets.safeDrawing,
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onNewRegister,
-                icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text("New register") }
-            )
-        }
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 96.dp),
+    val patients by repo.dao.observePatients().collectAsState(initial = emptyList())
+    val visits by repo.dao.observeVisits().collectAsState(initial = emptyList())
+    Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            item {
-                Column {
-                    Text(
-                        "AfyaReport",
-                        style = MaterialTheme.typography.displaySmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "Your registers. Open one to add patients or get the report.",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+            Text("AfyaReport", style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.primary)
+            Text(
+                "Diabetes and Hypertension register (MOH 222)",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                "${patients.size} patients enrolled  •  ${visits.size} visits recorded",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+            Button(onClick = onAddVisit, modifier = Modifier.fillMaxWidth()) { Text("Add a visit") }
+            MarginCard(onClick = onBook) {
+                Text("Register book", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Every visit, month by month. Open one to change it.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-            if (registers.isEmpty()) {
-                item {
-                    EmptyState(
-                        title = "No registers yet",
-                        body = "Create a register to match one of your paper registers, with its columns and keys.",
-                        actionLabel = "Create a register",
-                        onAction = onNewRegister
-                    )
-                }
-            } else {
-                items(registers, key = { it.id }) { r ->
-                    MarginCard(onClick = { onOpenRegister(r.id) }) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(r.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                            StatusChip("v${r.version}", ChipTone.Neutral)
-                        }
-                        if (r.description.isNotBlank()) {
-                            Text(
-                                r.description,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(top = 4.dp)
-                            )
-                        }
-                        Text(
-                            "Add patients  •  Get the report",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
-                    }
-                }
+            MarginCard(onClick = onPatients) {
+                Text("Patients", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Everyone enrolled, in patient number order.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-            item {
-                Column {
-                    TextButton(onClick = onTools) { Text("Backup, restore and sharing") }
-                    TextButton(onClick = onOlderSessions) { Text("Earlier batches (old screens)") }
-                }
+            MarginCard(onClick = onSettings) {
+                Text("Compulsory fields", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Choose which columns must be filled in.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }

@@ -1,5 +1,6 @@
 package ke.co.afyareport
 
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -14,208 +15,94 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import ke.co.afyareport.data.repository.RegisterRepository
-import ke.co.afyareport.data.repository.SessionRepository
+import ke.co.afyareport.data.Repo
+import ke.co.afyareport.domain.RegisterPrefs
+import ke.co.afyareport.ui.book.BookScreen
 import ke.co.afyareport.ui.home.HomeScreen
-import ke.co.afyareport.ui.navigation.Routes
-import ke.co.afyareport.ui.register.CreateRegisterScreen
-import ke.co.afyareport.ui.register.EditRegisterScreen
-import ke.co.afyareport.ui.register.PatientEntryScreen
-import ke.co.afyareport.ui.register.RegisterBookScreen
-import ke.co.afyareport.ui.register.RegisterDetailScreen
-import ke.co.afyareport.ui.register.RegisterListScreen
-import ke.co.afyareport.ui.report.RegisterReportRoute
-import ke.co.afyareport.ui.report.ReportResultScreen
-import ke.co.afyareport.ui.report.ReportSetupScreen
-import ke.co.afyareport.ui.session.CreateSessionScreen
-import ke.co.afyareport.ui.session.SessionDetailScreen
-import ke.co.afyareport.ui.session.SessionListScreen
-import ke.co.afyareport.ui.session.SessionSummaryScreen
+import ke.co.afyareport.ui.patients.PatientDetailScreen
+import ke.co.afyareport.ui.patients.PatientsScreen
+import ke.co.afyareport.ui.settings.SettingsScreen
 import ke.co.afyareport.ui.theme.AfyaTheme
-import ke.co.afyareport.ui.tools.ToolsScreen
+import ke.co.afyareport.ui.visit.VisitFormScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val app = application as AfyaReportApp
-        val container = app.container
         setContent {
             AfyaTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    AfyaReportNavHost(
-                        registerRepository = container.registerRepository,
-                        sessionRepository = container.sessionRepository
-                    )
+                    AppNav(app.repo, app.prefs)
                 }
             }
         }
     }
 }
 
-@Composable
-private fun AfyaReportNavHost(
-    registerRepository: RegisterRepository,
-    sessionRepository: SessionRepository
-) {
-    val navController = rememberNavController()
-    val registerArg = listOf(navArgument("registerId") { type = NavType.LongType })
-    val sessionArg = listOf(navArgument("sessionId") { type = NavType.LongType })
+private fun visitRoute(entryId: Long, patientNo: String = "") =
+    "visit/$entryId?patientNo=${Uri.encode(patientNo)}"
 
-    NavHost(navController = navController, startDestination = Routes.HOME) {
-        composable(Routes.HOME) {
+@Composable
+private fun AppNav(repo: Repo, prefs: RegisterPrefs) {
+    val nav = rememberNavController()
+    NavHost(navController = nav, startDestination = "home") {
+        composable("home") {
             HomeScreen(
-                registerRepository = registerRepository,
-                onOpenRegister = { id -> navController.navigate(Routes.registerBook(id)) },
-                onNewRegister = { navController.navigate(Routes.CREATE_REGISTER) },
-                onOlderSessions = { navController.navigate(Routes.SESSION_LIST) },
-                onTools = { navController.navigate(Routes.TOOLS) }
+                repo = repo,
+                onAddVisit = { nav.navigate(visitRoute(0L)) },
+                onBook = { nav.navigate("book") },
+                onPatients = { nav.navigate("patients") },
+                onSettings = { nav.navigate("settings") }
             )
         }
-        composable(Routes.TOOLS) {
-            ToolsScreen(
-                registerRepository = registerRepository,
-                onBack = { navController.popBackStack() },
-                onImported = { id ->
-                    navController.popBackStack()
-                    navController.navigate(Routes.registerBook(id))
-                }
-            )
-        }
-        composable(Routes.REGISTER_LIST) {
-            RegisterListScreen(
-                registerRepository = registerRepository,
-                onBack = { navController.popBackStack() },
-                onCreateRegister = { navController.navigate(Routes.CREATE_REGISTER) },
-                onRegisterClick = { id -> navController.navigate(Routes.registerBook(id)) }
-            )
-        }
-        composable(Routes.CREATE_REGISTER) {
-            CreateRegisterScreen(
-                registerRepository = registerRepository,
-                onBack = { navController.popBackStack() },
-                onRegisterCreated = { id ->
-                    navController.popBackStack()
-                    navController.navigate(Routes.registerBook(id))
-                }
-            )
-        }
-        composable(route = Routes.REGISTER_BOOK, arguments = registerArg) { be ->
-            val registerId = be.arguments?.getLong("registerId") ?: return@composable
-            RegisterBookScreen(
-                registerId = registerId,
-                registerRepository = registerRepository,
-                onBack = { navController.popBackStack() },
-                onAddPatient = { navController.navigate(Routes.entry(registerId, 0L)) },
-                onOpenEntry = { entryId -> navController.navigate(Routes.entry(registerId, entryId)) },
-                onReport = { navController.navigate(Routes.registerReport(registerId)) },
-                onReportSetup = { navController.navigate(Routes.reportSetup(registerId)) },
-                onEditRegister = { navController.navigate(Routes.editRegister(registerId)) }
+        composable("book") {
+            BookScreen(
+                repo = repo,
+                onBack = { nav.popBackStack() },
+                onOpenVisit = { id -> nav.navigate(visitRoute(id)) },
+                onAdd = { nav.navigate(visitRoute(0L)) }
             )
         }
         composable(
-            route = Routes.ENTRY,
+            route = "visit/{entryId}?patientNo={patientNo}",
             arguments = listOf(
-                navArgument("registerId") { type = NavType.LongType },
-                navArgument("entryId") { type = NavType.LongType }
+                navArgument("entryId") { type = NavType.LongType },
+                navArgument("patientNo") { type = NavType.StringType; defaultValue = "" }
             )
         ) { be ->
-            val registerId = be.arguments?.getLong("registerId") ?: return@composable
-            val entryId = be.arguments?.getLong("entryId") ?: 0L
-            PatientEntryScreen(
-                registerId = registerId,
-                entryId = entryId,
-                registerRepository = registerRepository,
-                sessionRepository = sessionRepository,
-                onBack = { navController.popBackStack() }
+            VisitFormScreen(
+                entryId = be.arguments?.getLong("entryId") ?: 0L,
+                startPatientNo = be.arguments?.getString("patientNo") ?: "",
+                repo = repo,
+                prefs = prefs,
+                onBack = { nav.popBackStack() }
             )
         }
-        composable(route = Routes.REGISTER_REPORT, arguments = registerArg) { be ->
-            val registerId = be.arguments?.getLong("registerId") ?: return@composable
-            RegisterReportRoute(
-                registerId = registerId,
-                registerRepository = registerRepository,
-                sessionRepository = sessionRepository,
-                onBack = { navController.popBackStack() },
-                onSetupReport = { id -> navController.navigate(Routes.reportSetup(id)) }
+        composable("patients") {
+            PatientsScreen(
+                repo = repo,
+                onBack = { nav.popBackStack() },
+                onOpenPatient = { id -> nav.navigate("patient/$id") }
             )
         }
-        composable(route = Routes.REPORT_SETUP, arguments = registerArg) { be ->
-            val registerId = be.arguments?.getLong("registerId") ?: return@composable
-            ReportSetupScreen(
-                registerId = registerId,
-                registerRepository = registerRepository,
-                onBack = { navController.popBackStack() }
+        composable(
+            route = "patient/{patientId}",
+            arguments = listOf(navArgument("patientId") { type = NavType.LongType })
+        ) { be ->
+            PatientDetailScreen(
+                patientId = be.arguments?.getLong("patientId") ?: 0L,
+                repo = repo,
+                onBack = { nav.popBackStack() },
+                onOpenVisit = { id -> nav.navigate(visitRoute(id)) },
+                onAddVisit = { no -> nav.navigate(visitRoute(0L, no)) }
             )
         }
-        composable(route = Routes.REGISTER_DETAIL, arguments = registerArg) { be ->
-            val registerId = be.arguments?.getLong("registerId") ?: return@composable
-            RegisterDetailScreen(
-                registerId = registerId,
-                registerRepository = registerRepository,
-                onBack = { navController.popBackStack() },
-                onEdit = { id -> navController.navigate(Routes.editRegister(id)) }
-            )
-        }
-        composable(route = Routes.EDIT_REGISTER, arguments = registerArg) { be ->
-            val registerId = be.arguments?.getLong("registerId") ?: return@composable
-            EditRegisterScreen(
-                registerId = registerId,
-                registerRepository = registerRepository,
-                onBack = { navController.popBackStack() },
-                onSaved = { navController.popBackStack() }
-            )
-        }
-        composable(Routes.SESSION_LIST) {
-            SessionListScreen(
-                sessionRepository = sessionRepository,
-                onBack = { navController.popBackStack() },
-                onCreateSession = { navController.navigate(Routes.CREATE_SESSION) },
-                onSessionClick = { id -> navController.navigate(Routes.sessionDetail(id)) }
-            )
-        }
-        composable(Routes.CREATE_SESSION) {
-            CreateSessionScreen(
-                registerRepository = registerRepository,
-                sessionRepository = sessionRepository,
-                onBack = { navController.popBackStack() },
-                onSessionCreated = { id ->
-                    navController.popBackStack()
-                    navController.navigate(Routes.sessionDetail(id))
-                }
-            )
-        }
-        composable(route = Routes.SESSION_DETAIL, arguments = sessionArg) { be ->
-            val sessionId = be.arguments?.getLong("sessionId") ?: return@composable
-            SessionDetailScreen(
-                sessionId = sessionId,
-                registerRepository = registerRepository,
-                sessionRepository = sessionRepository,
-                onBack = { navController.popBackStack() },
-                onOpenSummary = { id -> navController.navigate(Routes.sessionReport(id)) }
-            )
-        }
-        composable(route = Routes.SESSION_SUMMARY, arguments = sessionArg) { be ->
-            val sessionId = be.arguments?.getLong("sessionId") ?: return@composable
-            SessionSummaryScreen(
-                sessionId = sessionId,
-                registerRepository = registerRepository,
-                sessionRepository = sessionRepository,
-                onBack = { navController.popBackStack() }
-            )
-        }
-        composable(route = Routes.SESSION_REPORT, arguments = sessionArg) { be ->
-            val sessionId = be.arguments?.getLong("sessionId") ?: return@composable
-            ReportResultScreen(
-                sessionId = sessionId,
-                registerRepository = registerRepository,
-                sessionRepository = sessionRepository,
-                onBack = { navController.popBackStack() },
-                onSetupReport = { id -> navController.navigate(Routes.reportSetup(id)) }
-            )
+        composable("settings") {
+            SettingsScreen(prefs = prefs, onBack = { nav.popBackStack() })
         }
     }
 }
