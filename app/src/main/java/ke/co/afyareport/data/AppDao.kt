@@ -53,4 +53,7 @@ interface AppDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveCounts(c: MonthCountsEntity)
+
+    @Query("SELECT * FROM month_counts")
+    fun observeCounts(): Flow<List<MonthCountsEntity>>
 }

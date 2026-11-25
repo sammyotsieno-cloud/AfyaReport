@@ -18,9 +18,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import ke.co.afyareport.data.BackupManager
 import ke.co.afyareport.data.Repo
+import ke.co.afyareport.ui.common.Notice
 import ke.co.afyareport.ui.theme.MarginCard
 
 @Composable
@@ -29,10 +33,15 @@ fun HomeScreen(
     onAddVisit: () -> Unit,
     onBook: () -> Unit,
     onPatients: () -> Unit,
+    onReport: () -> Unit,
+    onBackup: () -> Unit,
     onSettings: () -> Unit
 ) {
+    val context = LocalContext.current
     val patients by repo.dao.observePatients().collectAsState(initial = emptyList())
     val visits by repo.dao.observeVisits().collectAsState(initial = emptyList())
+    val lastBackup = remember { BackupManager.lastBackup(context) }
+    val weekMs = 7L * 24 * 60 * 60 * 1000
     Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { padding ->
         Column(
             modifier = Modifier
@@ -53,8 +62,23 @@ fun HomeScreen(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(Modifier.height(8.dp))
+            if (visits.isNotEmpty() && System.currentTimeMillis() - lastBackup > weekMs) {
+                Notice(
+                    if (lastBackup == 0L) "You have not backed up yet. Do it now so nothing is lost."
+                    else "Your last backup is more than a week old.",
+                    warning = true
+                )
+            }
+            Spacer(Modifier.height(4.dp))
             Button(onClick = onAddVisit, modifier = Modifier.fillMaxWidth()) { Text("Add a visit") }
+            MarginCard(onClick = onReport) {
+                Text("Monthly report (740)", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "The summary form, worked out from the register.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             MarginCard(onClick = onBook) {
                 Text("Register book", style = MaterialTheme.typography.titleMedium)
                 Text(
@@ -67,6 +91,14 @@ fun HomeScreen(
                 Text("Patients", style = MaterialTheme.typography.titleMedium)
                 Text(
                     "Everyone enrolled, in patient number order.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            MarginCard(onClick = onBackup) {
+                Text("Backup and restore", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Keep a copy of your data safe.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

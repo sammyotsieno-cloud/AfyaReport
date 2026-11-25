@@ -17,10 +17,13 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import ke.co.afyareport.data.Repo
 import ke.co.afyareport.domain.RegisterPrefs
+import ke.co.afyareport.ui.backup.BackupScreen
 import ke.co.afyareport.ui.book.BookScreen
 import ke.co.afyareport.ui.home.HomeScreen
 import ke.co.afyareport.ui.patients.PatientDetailScreen
 import ke.co.afyareport.ui.patients.PatientsScreen
+import ke.co.afyareport.ui.report.CountsScreen
+import ke.co.afyareport.ui.report.ReportScreen
 import ke.co.afyareport.ui.settings.SettingsScreen
 import ke.co.afyareport.ui.theme.AfyaTheme
 import ke.co.afyareport.ui.visit.VisitFormScreen
@@ -56,6 +59,8 @@ private fun AppNav(repo: Repo, prefs: RegisterPrefs) {
                 onAddVisit = { nav.navigate(visitRoute(0L)) },
                 onBook = { nav.navigate("book") },
                 onPatients = { nav.navigate("patients") },
+                onReport = { nav.navigate("report") },
+                onBackup = { nav.navigate("backup") },
                 onSettings = { nav.navigate("settings") }
             )
         }
@@ -100,6 +105,19 @@ private fun AppNav(repo: Repo, prefs: RegisterPrefs) {
                 onOpenVisit = { id -> nav.navigate(visitRoute(id)) },
                 onAddVisit = { no -> nav.navigate(visitRoute(0L, no)) }
             )
+        }
+        composable("report") {
+            ReportScreen(
+                repo = repo,
+                onBack = { nav.popBackStack() },
+                onCounts = { nav.navigate("counts") }
+            )
+        }
+        composable("counts") {
+            CountsScreen(repo = repo, onBack = { nav.popBackStack() })
+        }
+        composable("backup") {
+            BackupScreen(onBack = { nav.popBackStack() })
         }
         composable("settings") {
             SettingsScreen(prefs = prefs, onBack = { nav.popBackStack() })
