@@ -40,11 +40,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import ke.co.afyareport.data.Repo
 import ke.co.afyareport.data.VisitEntity
+import ke.co.afyareport.domain.DraftStore
 import ke.co.afyareport.domain.FormField
 import ke.co.afyareport.domain.Keys
 import ke.co.afyareport.domain.RegisterPrefs
@@ -75,6 +77,7 @@ fun VisitFormScreen(
     startPatientNo: String,
     repo: Repo,
     prefs: RegisterPrefs,
+    drafts: DraftStore,
     onBack: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
@@ -93,6 +96,8 @@ fun VisitFormScreen(
     var confirmDelete by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
     var showComp by remember { mutableStateOf(false) }
+    var restored by remember { mutableStateOf(false) }
+    var ready by remember { mutableStateOf(entryId != 0L) }
 
     LaunchedEffect(entryId) {
         if (entryId != 0L) {
@@ -104,7 +109,23 @@ fun VisitFormScreen(
             }
         } else {
             prefs.lastDate()?.let { form.date = LocalDate.ofEpochDay(it) }
-            if (startPatientNo.isNotBlank()) form.patientNo = startPatientNo
+            val draft = drafts.loadJson()
+            if (draft != null) {
+                runCatching { form.fromJson(draft) }
+                restored = form.hasContent()
+                visitNoTouched = form.visitNo.isNotBlank()
+                if (form.complications.isNotEmpty()) showComp = true
+            }
+            if (startPatientNo.isNotBlank() && form.patientNo.isBlank()) form.patientNo = startPatientNo
+            ready = true
+        }
+    }
+
+    LaunchedEffect(ready) {
+        if (entryId == 0L && ready) {
+            snapshotFlow { if (form.hasContent()) form.toJson() else null }.collect { json ->
+                if (json == null) drafts.clear() else drafts.save(json)
+            }
         }
     }
 
@@ -161,6 +182,7 @@ fun VisitFormScreen(
                 repo.changeVisit(form.patientNo, form.name, entity)
             }
             prefs.setLastDate(form.date.toEpochDay())
+            drafts.clear()
             saving = false
             if (addNext && base == null) {
                 form.reset()
@@ -223,6 +245,20 @@ fun VisitFormScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             savedNote?.let { Notice(it) }
+            if (restored && existing == null) {
+                Notice("Your unsaved entry was restored. You can leave any time. It stays here until you save or discard it.")
+                OutlinedButton(
+                    onClick = {
+                        form.reset()
+                        visitNoTouched = false
+                        prefilledFor = -1L
+                        showComp = false
+                        restored = false
+                        drafts.clear()
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Discard this entry and start over") }
+            }
             if (errors.isNotEmpty()) Notice("Please fix the marked fields.", warning = true)
 
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {

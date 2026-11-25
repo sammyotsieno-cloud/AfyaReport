@@ -15,6 +15,8 @@ import ke.co.afyareport.domain.num
 import ke.co.afyareport.domain.patientKey
 import ke.co.afyareport.domain.toCsv
 import java.time.LocalDate
+import org.json.JSONArray
+import org.json.JSONObject
 
 /** Everything typed on the visit form. Every field is observable, so typing redraws at once. */
 class VisitForm {
@@ -128,6 +130,82 @@ class VisitForm {
             remarks = remarks.trim(),
             updatedAt = System.currentTimeMillis()
         )
+    }
+
+    /** True when anything has been typed or ticked (the date alone does not count). */
+    fun hasContent(): Boolean =
+        listOf(
+            patientNo, name, age, sex, visitNo, weight, height, waist, sys, dia, condition, status,
+            rbs, fbs, hba1c, diagnosis, footScreened, diabeticFoot, footRisk, footOutcome,
+            tbScreened, tbStatus, nhif, remarks
+        ).any { it.isNotBlank() } ||
+            complications.isNotEmpty() || treatment.isNotEmpty() || footFactors.isNotEmpty()
+
+    fun toJson(): String = JSONObject().apply {
+        put("date", date.toEpochDay())
+        put("patientNo", patientNo)
+        put("name", name)
+        put("age", age)
+        put("sex", sex)
+        put("visitNo", visitNo)
+        put("weight", weight)
+        put("height", height)
+        put("waist", waist)
+        put("sys", sys)
+        put("dia", dia)
+        put("condition", condition)
+        put("status", status)
+        put("rbs", rbs)
+        put("fbs", fbs)
+        put("hba1c", hba1c)
+        put("diagnosis", diagnosis)
+        put("complications", JSONObject(complications.toMap()))
+        put("treatment", JSONArray(treatment.toList()))
+        put("footScreened", footScreened)
+        put("diabeticFoot", diabeticFoot)
+        put("footRisk", footRisk)
+        put("footFactors", JSONArray(footFactors.toList()))
+        put("footOutcome", footOutcome)
+        put("tbScreened", tbScreened)
+        put("tbStatus", tbStatus)
+        put("nhif", nhif)
+        put("remarks", remarks)
+    }.toString()
+
+    fun fromJson(s: String) {
+        val o = JSONObject(s)
+        val d = LocalDate.ofEpochDay(o.optLong("date", LocalDate.now().toEpochDay()))
+        date = if (d.isAfter(LocalDate.now())) LocalDate.now() else d
+        patientNo = o.optString("patientNo")
+        name = o.optString("name")
+        age = o.optString("age")
+        sex = o.optString("sex")
+        visitNo = o.optString("visitNo")
+        weight = o.optString("weight")
+        height = o.optString("height")
+        waist = o.optString("waist")
+        sys = o.optString("sys")
+        dia = o.optString("dia")
+        condition = o.optString("condition")
+        status = o.optString("status")
+        rbs = o.optString("rbs")
+        fbs = o.optString("fbs")
+        hba1c = o.optString("hba1c")
+        diagnosis = o.optString("diagnosis")
+        footScreened = o.optString("footScreened")
+        diabeticFoot = o.optString("diabeticFoot")
+        footRisk = o.optString("footRisk")
+        footOutcome = o.optString("footOutcome")
+        tbScreened = o.optString("tbScreened")
+        tbStatus = o.optString("tbStatus")
+        nhif = o.optString("nhif")
+        remarks = o.optString("remarks")
+        complications.clear()
+        o.optJSONObject("complications")?.let { c -> c.keys().forEach { k -> complications[k] = c.optString(k) } }
+        treatment.clear()
+        o.optJSONArray("treatment")?.let { a -> for (i in 0 until a.length()) treatment.add(a.getString(i)) }
+        footFactors.clear()
+        o.optJSONArray("footFactors")?.let { a -> for (i in 0 until a.length()) footFactors.add(a.getString(i)) }
     }
 
     fun validate(required: Set<FormField>): Map<FormField, String> {
