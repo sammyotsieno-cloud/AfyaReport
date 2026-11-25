@@ -32,3 +32,19 @@ fun bmiBand(bmi: Double?): String? = when {
 fun csvSet(s: String): Set<String> = s.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
 
 fun toCsv(items: Collection<String>): String = items.toSortedSet().joinToString(",")
+
+/** Tidies a typed name: single spaces, and a capital letter at the start of every word. */
+fun properName(s: String): String {
+    val out = StringBuilder()
+    var capNext = true
+    for (ch in s.trim().replace(Regex("\\s+"), " ")) {
+        if (capNext && ch.isLetter()) {
+            out.append(ch.uppercaseChar())
+            capNext = false
+        } else {
+            out.append(ch)
+            capNext = ch == ' ' || ch == '-'
+        }
+    }
+    return out.toString()
+}

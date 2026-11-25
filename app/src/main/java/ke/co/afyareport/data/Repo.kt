@@ -1,6 +1,7 @@
 package ke.co.afyareport.data
 
 import ke.co.afyareport.domain.patientKey
+import ke.co.afyareport.domain.properName
 
 class Repo(val dao: AppDao) {
 
@@ -11,14 +12,14 @@ class Repo(val dao: AppDao) {
         val existing = dao.findPatient(key)
         if (existing != null) {
             if (name.isNotBlank() && existing.name.isBlank()) {
-                val updated = existing.copy(name = name.trim())
+                val updated = existing.copy(name = properName(name))
                 dao.updatePatient(updated)
                 return updated
             }
             return existing
         }
-        val id = dao.insertPatient(PatientEntity(patientNo = no, patientKey = key, name = name.trim()))
-        return dao.findPatient(key) ?: PatientEntity(id = id, patientNo = no, patientKey = key, name = name.trim())
+        val id = dao.insertPatient(PatientEntity(patientNo = no, patientKey = key, name = properName(name)))
+        return dao.findPatient(key) ?: PatientEntity(id = id, patientNo = no, patientKey = key, name = properName(name))
     }
 
     suspend fun addVisit(patientNo: String, name: String, visit: VisitEntity): Long {

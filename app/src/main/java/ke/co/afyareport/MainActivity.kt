@@ -48,6 +48,7 @@ import ke.co.afyareport.ui.collect.CollectScreen
 import ke.co.afyareport.ui.home.HomeScreen
 import ke.co.afyareport.ui.patients.PatientDetailScreen
 import ke.co.afyareport.ui.patients.PatientsScreen
+import ke.co.afyareport.ui.patients.VisitSummaryScreen
 import ke.co.afyareport.ui.report.CountsScreen
 import ke.co.afyareport.ui.report.ReportScreen
 import ke.co.afyareport.ui.reports.ReportsScreen
@@ -208,7 +209,7 @@ private fun AppNav(repo: Repo, prefs: RegisterPrefs, drafts: DraftStore) {
                 BookScreen(
                     repo = repo,
                     onBack = { nav.popBackStack() },
-                    onOpenVisit = { id -> nav.navigate(visitRoute(id)) },
+                    onOpenPatient = { id -> nav.navigate("patient/$id") },
                     onAdd = { nav.navigate(visitRoute(0L)) }
                 )
             }
@@ -243,8 +244,19 @@ private fun AppNav(repo: Repo, prefs: RegisterPrefs, drafts: DraftStore) {
                     patientId = be.arguments?.getLong("patientId") ?: 0L,
                     repo = repo,
                     onBack = { nav.popBackStack() },
-                    onOpenVisit = { id -> nav.navigate(visitRoute(id)) },
+                    onOpenVisit = { id -> nav.navigate("visitsummary/$id") },
                     onAddVisit = { no -> nav.navigate(visitRoute(0L, no)) }
+                )
+            }
+            composable(
+                route = "visitsummary/{entryId}",
+                arguments = listOf(navArgument("entryId") { type = NavType.LongType })
+            ) { be ->
+                VisitSummaryScreen(
+                    entryId = be.arguments?.getLong("entryId") ?: 0L,
+                    repo = repo,
+                    onBack = { nav.popBackStack() },
+                    onEdit = { id -> nav.navigate(visitRoute(id)) }
                 )
             }
             composable("report") {

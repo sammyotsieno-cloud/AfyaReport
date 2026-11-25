@@ -41,7 +41,7 @@ import java.time.YearMonth
 
 /** The register as one continuous book, browsed month by month with the calendar picker. */
 @Composable
-fun BookScreen(repo: Repo, onBack: () -> Unit, onOpenVisit: (Long) -> Unit, onAdd: () -> Unit) {
+fun BookScreen(repo: Repo, onBack: () -> Unit, onOpenPatient: (Long) -> Unit, onAdd: () -> Unit) {
     val patients by repo.dao.observePatients().collectAsState(initial = emptyList())
     val visits by repo.dao.observeVisits().collectAsState(initial = emptyList())
     var query by remember { mutableStateOf("") }
@@ -135,7 +135,7 @@ fun BookScreen(repo: Repo, onBack: () -> Unit, onOpenVisit: (Long) -> Unit, onAd
                 }
             }
             items(shown, key = { it.id }) { v ->
-                VisitRow(v, byId[v.patientId]) { onOpenVisit(v.id) }
+                VisitRow(v, byId[v.patientId]) { onOpenPatient(v.patientId) }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
         }

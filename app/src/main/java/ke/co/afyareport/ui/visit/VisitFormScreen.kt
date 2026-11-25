@@ -47,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import ke.co.afyareport.data.Repo
 import ke.co.afyareport.data.VisitEntity
@@ -316,7 +317,7 @@ fun VisitFormScreen(
                 isError = errors.containsKey(FormField.PATIENT_NO),
                 supportingText = { errors[FormField.PATIENT_NO]?.let { Text(it) } },
                 singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters, imeAction = ImeAction.Next),
                 modifier = Modifier.fillMaxWidth()
             )
             if (matched != null) {
@@ -353,6 +354,7 @@ fun VisitFormScreen(
                     onValueChange = { form.name = it },
                     label = { Text("Name (optional, saved once in the patient list)") },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Next),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -485,6 +487,7 @@ fun VisitFormScreen(
                 value = form.remarks,
                 onValueChange = { form.remarks = it },
                 label = { Text("Remarks (optional)") },
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 modifier = Modifier.fillMaxWidth()
             )
 
