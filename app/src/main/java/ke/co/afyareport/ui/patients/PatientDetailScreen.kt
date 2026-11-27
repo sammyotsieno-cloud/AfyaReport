@@ -41,6 +41,7 @@ import ke.co.afyareport.domain.asDate
 import ke.co.afyareport.domain.dayFormat
 import ke.co.afyareport.domain.patientBrief
 import ke.co.afyareport.domain.properName
+import ke.co.afyareport.domain.registrationBrief
 import ke.co.afyareport.ui.book.VisitRow
 import ke.co.afyareport.ui.common.InfoRow
 import ke.co.afyareport.ui.theme.AfyaTopBar
@@ -72,8 +73,9 @@ fun PatientDetailScreen(
             .sortedWith(compareByDescending<VisitEntity> { it.visitDate }.thenByDescending { it.id })
     }
     val enrolled = mine.minOfOrNull { it.visitDate }?.asDate()
+        ?: patient?.createdAt?.let { java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).toLocalDate() }
     val last = mine.maxOfOrNull { it.visitDate }?.asDate()
-    val brief = remember(mine) { patientBrief(mine) }
+    val brief = remember(mine, patient) { patientBrief(mine).ifEmpty { registrationBrief(patient) } }
     val scheme = MaterialTheme.colorScheme
 
     if (editName && patient != null) {

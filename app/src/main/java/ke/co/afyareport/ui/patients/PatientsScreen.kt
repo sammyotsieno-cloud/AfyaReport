@@ -12,7 +12,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -31,10 +35,17 @@ import ke.co.afyareport.domain.dayFormat
 import ke.co.afyareport.domain.naturalCompare
 import ke.co.afyareport.ui.theme.AfyaTopBar
 import ke.co.afyareport.ui.theme.EmptyState
+import java.time.Instant
+import java.time.ZoneId
 
-/** The enrolment list: one row per patient number, in order, built automatically from the visits. */
+/** The enrolment list: one row per patient number, in order. Enrolled = date of the earliest visit. */
 @Composable
-fun PatientsScreen(repo: Repo, onBack: () -> Unit, onOpenPatient: (Long) -> Unit) {
+fun PatientsScreen(
+    repo: Repo,
+    onBack: () -> Unit,
+    onOpenPatient: (Long) -> Unit,
+    onAdd: () -> Unit
+) {
     val patients by repo.dao.observePatients().collectAsState(initial = emptyList())
     val visits by repo.dao.observeVisits().collectAsState(initial = emptyList())
     var query by remember { mutableStateOf("") }
@@ -47,11 +58,18 @@ fun PatientsScreen(repo: Repo, onBack: () -> Unit, onOpenPatient: (Long) -> Unit
 
     Scaffold(
         contentWindowInsets = WindowInsets.safeDrawing,
-        topBar = { AfyaTopBar(title = "Patients", onBack = onBack) }
+        topBar = { AfyaTopBar(title = "Patients", onBack = onBack) },
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = onAdd,
+                icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                text = { Text("Add a patient") }
+            )
+        }
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(bottom = 24.dp)
+            contentPadding = PaddingValues(bottom = 96.dp)
         ) {
             item {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -73,14 +91,17 @@ fun PatientsScreen(repo: Repo, onBack: () -> Unit, onOpenPatient: (Long) -> Unit
                 item {
                     EmptyState(
                         title = "No patients yet",
-                        body = "Patients are added here automatically the first time you use their number on a visit."
+                        body = "Patients are added here automatically the first time you use their number on a visit, or you can add one yourself.",
+                        actionLabel = "Add a patient",
+                        onAction = onAdd
                     )
                 }
             }
             items(shown, key = { it.id }) { p ->
                 val list = byPatient[p.id].orEmpty()
-                val first = list.minOfOrNull { it.visitDate }
-                val last = list.maxOfOrNull { it.visitDate }
+                val first = list.minOfOrNull { it.visitDate }?.asDate()
+                val last = list.maxOfOrNull { it.visitDate }?.asDate()
+                val registered = Instant.ofEpochMilli(p.createdAt).atZone(ZoneId.systemDefault()).toLocalDate()
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -94,9 +115,9 @@ fun PatientsScreen(repo: Repo, onBack: () -> Unit, onOpenPatient: (Long) -> Unit
                         style = MaterialTheme.typography.titleSmall
                     )
                     Text(
-                        "${list.size} visit(s)" +
-                            (if (first != null) "  •  enrolled ${first.asDate().format(dayFormat)}" else "") +
-                            (if (last != null && last != first) "  •  last ${last.asDate().format(dayFormat)}" else ""),
+                        if (list.isEmpty()) "No visits yet  •  registered ${registered.format(dayFormat)}"
+                        else "${list.size} visit(s)  •  enrolled ${first?.format(dayFormat)}" +
+                            (if (last != null && last != first) "  •  last ${last.format(dayFormat)}" else ""),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

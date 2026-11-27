@@ -12,6 +12,9 @@ data class PatientEntity(
     val patientNo: String,
     val patientKey: String,
     val name: String = "",
+    val sex: String = "",
+    val age: Int? = null,
+    val ageAsOf: Long = 0,
     val createdAt: Long = System.currentTimeMillis()
 )
 

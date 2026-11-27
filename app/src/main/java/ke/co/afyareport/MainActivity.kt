@@ -46,6 +46,7 @@ import ke.co.afyareport.ui.backup.BackupScreen
 import ke.co.afyareport.ui.book.BookScreen
 import ke.co.afyareport.ui.collect.CollectScreen
 import ke.co.afyareport.ui.home.HomeScreen
+import ke.co.afyareport.ui.patients.AddPatientScreen
 import ke.co.afyareport.ui.patients.PatientDetailScreen
 import ke.co.afyareport.ui.patients.PatientsScreen
 import ke.co.afyareport.ui.patients.VisitSummaryScreen
@@ -233,7 +234,8 @@ private fun AppNav(repo: Repo, prefs: RegisterPrefs, drafts: DraftStore) {
                 PatientsScreen(
                     repo = repo,
                     onBack = { nav.popBackStack() },
-                    onOpenPatient = { id -> nav.navigate("patient/$id") }
+                    onOpenPatient = { id -> nav.navigate("patient/$id") },
+                    onAdd = { nav.navigate("addpatient") }
                 )
             }
             composable(
@@ -257,6 +259,16 @@ private fun AppNav(repo: Repo, prefs: RegisterPrefs, drafts: DraftStore) {
                     repo = repo,
                     onBack = { nav.popBackStack() },
                     onEdit = { id -> nav.navigate(visitRoute(id)) }
+                )
+            }
+            composable("addpatient") {
+                AddPatientScreen(
+                    repo = repo,
+                    onBack = { nav.popBackStack() },
+                    onSaved = { id ->
+                        nav.popBackStack()
+                        nav.navigate("patient/$id")
+                    }
                 )
             }
             composable("report") {

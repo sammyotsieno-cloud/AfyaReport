@@ -9,31 +9,28 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
-import ke.co.afyareport.ui.theme.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import ke.co.afyareport.ui.theme.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -45,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -55,19 +53,26 @@ import ke.co.afyareport.domain.DraftStore
 import ke.co.afyareport.domain.FormField
 import ke.co.afyareport.domain.Keys
 import ke.co.afyareport.domain.RegisterPrefs
+import ke.co.afyareport.domain.Suggestion
 import ke.co.afyareport.domain.asDate
 import ke.co.afyareport.domain.bmiBand
+import ke.co.afyareport.domain.buildFacts
 import ke.co.afyareport.domain.dayFormat
+import ke.co.afyareport.domain.evaluateMatch
 import ke.co.afyareport.domain.labelOf
 import ke.co.afyareport.domain.patientKey
-import ke.co.afyareport.domain.similarPatients
+import ke.co.afyareport.domain.recurringProfile
+import ke.co.afyareport.domain.suggestPatients
 import ke.co.afyareport.ui.common.DatePickDialog
 import ke.co.afyareport.ui.common.MultiChoice
-import ke.co.afyareport.ui.common.NumberField
 import ke.co.afyareport.ui.common.Notice
-import ke.co.afyareport.ui.theme.SectionHeader
+import ke.co.afyareport.ui.common.NumberField
 import ke.co.afyareport.ui.common.SingleChoice
+import ke.co.afyareport.ui.common.SuggestionPanel
 import ke.co.afyareport.ui.theme.AfyaTopBar
+import ke.co.afyareport.ui.theme.Button
+import ke.co.afyareport.ui.theme.OutlinedButton
+import ke.co.afyareport.ui.theme.SectionHeader
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -103,6 +108,9 @@ fun VisitFormScreen(
     var showComp by remember { mutableStateOf(false) }
     var restored by remember { mutableStateOf(false) }
     var ready by remember { mutableStateOf(entryId != 0L) }
+    var finished by remember { mutableStateOf(false) }
+    var pendingNext by remember { mutableStateOf<Boolean?>(null) }
+    var dismissed by remember { mutableStateOf<Set<Long>>(emptySet()) }
 
     LaunchedEffect(entryId) {
         if (entryId != 0L) {
@@ -126,53 +134,76 @@ fun VisitFormScreen(
         }
     }
 
+    // Keeps an unfinished new entry safe. Stops for good once the visit is saved.
     LaunchedEffect(ready) {
         if (entryId == 0L && ready) {
             snapshotFlow { if (form.hasContent()) form.toJson() else null }.collect { json ->
-                if (json == null) drafts.clear() else drafts.save(json)
+                if (!finished) {
+                    if (json == null) drafts.clear() else drafts.save(json)
+                }
             }
         }
     }
 
     val key = patientKey(form.patientNo)
     val matched = patients.firstOrNull { it.patientKey == key && key.isNotEmpty() }
-    val others = visits.filter { v -> matched != null && v.patientId == matched.id && v.id != (existing?.id ?: -1L) }
+    val others = visits.filter { v ->
+        matched != null && v.patientId == matched.id && v.id != (existing?.id ?: -1L)
+    }
     val sameDay = others.any { it.visitDate == form.date.toEpochDay() }
     val monthCount = others.count {
         val d = it.visitDate.asDate()
         d.year == form.date.year && d.month == form.date.month
     }
-    val similar = if (matched == null) similarPatients(key, patients) else emptyList()
+
+    val facts = remember(patients, visits) { buildFacts(patients, visits) }
+    val typedAge = form.age.trim().toIntOrNull()
+    val matchedFacts = matched?.let { m -> facts.firstOrNull { it.patient.id == m.id } }
+    val conflicts = if (matchedFacts != null && existing == null) {
+        evaluateMatch(matchedFacts, form.patientNo, form.name, typedAge, form.sex, form.date).conflicts
+    } else emptyList()
+    val suggestions = remember(facts, form.patientNo, form.name, typedAge, form.sex, form.date, existing?.id) {
+        if (existing != null) emptyList()
+        else suggestPatients(facts, form.patientNo, form.name, typedAge, form.sex, form.date)
+    }.filter { it.facts.patient.id !in dismissed }
+        .let { if (matched != null && conflicts.isEmpty()) emptyList() else it }
 
     LaunchedEffect(key, monthCount, form.date) {
-        if (!visitNoTouched && key.isNotEmpty()) form.visitNo = (monthCount + 1).toString()
+        if (!visitNoTouched && key.isNotEmpty() && !finished) form.visitNo = (monthCount + 1).toString()
     }
 
     LaunchedEffect(matched?.id, visits.size) {
         val m = matched
         if (existing == null && m != null && prefilledFor != m.id) {
-            val last = visits.filter { it.patientId == m.id }
-                .maxWithOrNull(compareBy<VisitEntity>({ it.visitDate }, { it.id }))
-            if (last != null) {
+            val theirs = visits.filter { it.patientId == m.id }
+            if (theirs.isNotEmpty()) {
                 prefilledFor = m.id
-                if (form.sex.isBlank()) form.sex = last.sex
-                if (form.age.isBlank()) form.age = last.age?.toString() ?: ""
-                if (form.condition.isBlank()) form.condition = last.condition
-                if (form.diagnosis.isBlank()) form.diagnosis = last.diagnosis
-                if (form.status.isBlank() && last.condition.isNotBlank()) form.status = "b"
-                if (form.nhif.isBlank()) form.nhif = last.nhif
+                form.applyProfile(recurringProfile(m, theirs, form.date))
             }
         }
     }
 
     fun star(f: FormField) = if (f in required) " *" else ""
 
-    fun save(addNext: Boolean) {
-        if (saving) return
+    fun applySuggestion(s: Suggestion) {
+        val p = s.facts.patient
+        form.patientNo = p.patientNo
+        form.applyProfile(recurringProfile(p, visits.filter { it.patientId == p.id }, form.date))
+        prefilledFor = p.id
+        visitNoTouched = false
+        savedNote = null
+    }
+
+    fun save(addNext: Boolean, force: Boolean = false) {
+        if (saving || finished) return
         val found = form.validate(required)
         errors = found
         if (found.isNotEmpty()) {
             scope.launch { scroll.animateScrollTo(0) }
+            return
+        }
+        if (existing == null && sameDay && !force) {
+            pendingNext = addNext
             return
         }
         saving = true
@@ -181,12 +212,21 @@ fun VisitFormScreen(
             val entity = form.toEntity(base)
             val label = form.patientNo.trim()
             val wasEnrolled = matched != null
-            if (base == null) {
-                repo.addVisit(form.patientNo, form.name, entity)
-            } else {
-                repo.changeVisit(form.patientNo, form.name, entity)
+            finished = true
+            drafts.clear()
+            try {
+                if (base == null) {
+                    repo.addVisit(form.patientNo, form.name, entity)
+                } else {
+                    repo.changeVisit(form.patientNo, form.name, entity)
+                }
+                prefs.setLastDate(form.date.toEpochDay())
+            } catch (e: Exception) {
+                finished = false
+                saving = false
+                savedNote = "The visit could not be saved. Please try again."
+                return@launch
             }
-            prefs.setLastDate(form.date.toEpochDay())
             drafts.clear()
             saving = false
             if (addNext && base == null) {
@@ -195,7 +235,9 @@ fun VisitFormScreen(
                 prefilledFor = -1L
                 errors = emptyMap()
                 showComp = false
+                dismissed = emptySet()
                 savedNote = "Saved $label" + if (wasEnrolled) " (revisit)" else " (new patient)"
+                finished = false
                 scroll.scrollTo(0)
             } else {
                 onBack()
@@ -205,6 +247,22 @@ fun VisitFormScreen(
 
     if (pickDate) {
         DatePickDialog(form.date, { form.date = it }, { pickDate = false })
+    }
+    pendingNext?.let { next ->
+        AlertDialog(
+            onDismissRequest = { pendingNext = null },
+            title = { Text("Add another visit on the same day?") },
+            text = {
+                Text(
+                    "This patient already has a visit on ${form.date.format(dayFormat)}. " +
+                        "If you meant to change that visit, cancel and open it from the patient's summary."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { pendingNext = null; save(next, force = true) }) { Text("Add as another visit") }
+            },
+            dismissButton = { TextButton(onClick = { pendingNext = null }) { Text("Cancel") } }
+        )
     }
     if (confirmDelete) {
         AlertDialog(
@@ -228,36 +286,59 @@ fun VisitFormScreen(
     Scaffold(
         contentWindowInsets = WindowInsets.safeDrawing,
         bottomBar = {
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                shadowElevation = 8.dp
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .windowInsetsPadding(
-                            WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom)
-                        )
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+            Column {
+                val top = suggestions.firstOrNull()
+                if (top != null && existing == null) {
+                    Surface(color = MaterialTheme.colorScheme.tertiaryContainer) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+                                .padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Same patient as ${top.facts.patient.patientNo}" +
+                                    (if (top.facts.patient.name.isNotBlank()) " (${top.facts.patient.name})" else "") + "?",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(onClick = { applySuggestion(top) }) { Text("Use") }
+                        }
+                    }
+                }
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                    shadowElevation = 8.dp
                 ) {
-                    if (existing == null) {
-                        OutlinedButton(
-                            onClick = { save(false) },
-                            enabled = !saving,
-                            modifier = Modifier.weight(1f)
-                        ) { Text("Save and close") }
-                        Button(
-                            onClick = { save(true) },
-                            enabled = !saving,
-                            modifier = Modifier.weight(1.4f)
-                        ) { Text("Save and next") }
-                    } else {
-                        Button(
-                            onClick = { save(false) },
-                            enabled = !saving,
-                            modifier = Modifier.fillMaxWidth()
-                        ) { Text("Save changes") }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .windowInsetsPadding(
+                                WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom)
+                            )
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        if (existing == null) {
+                            OutlinedButton(
+                                onClick = { save(false) },
+                                enabled = !saving,
+                                modifier = Modifier.weight(1f)
+                            ) { Text("Save and close") }
+                            Button(
+                                onClick = { save(true) },
+                                enabled = !saving,
+                                modifier = Modifier.weight(1.4f)
+                            ) { Text("Save and next") }
+                        } else {
+                            Button(
+                                onClick = { save(false) },
+                                enabled = !saving,
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("Save changes") }
+                        }
                     }
                 }
             }
@@ -294,6 +375,7 @@ fun VisitFormScreen(
                         prefilledFor = -1L
                         showComp = false
                         restored = false
+                        dismissed = emptySet()
                         drafts.clear()
                     },
                     modifier = Modifier.fillMaxWidth()
@@ -317,7 +399,10 @@ fun VisitFormScreen(
                 isError = errors.containsKey(FormField.PATIENT_NO),
                 supportingText = { errors[FormField.PATIENT_NO]?.let { Text(it) } },
                 singleLine = true,
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters, imeAction = ImeAction.Next),
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Characters,
+                    imeAction = ImeAction.Next
+                ),
                 modifier = Modifier.fillMaxWidth()
             )
             if (matched != null) {
@@ -328,6 +413,13 @@ fun VisitFormScreen(
                         ". ${others.size} other visit(s) recorded" +
                         (if (last != null) ", last on ${last.asDate().format(dayFormat)}" else "") + "."
                 )
+                if (conflicts.isNotEmpty()) {
+                    Notice(
+                        "Number ${matched.patientNo} is already enrolled, but this entry has " +
+                            conflicts.joinToString(" and ") + ". Check that the number is right.",
+                        warning = true
+                    )
+                }
                 if (sameDay) {
                     Notice(
                         "This patient already has a visit on ${form.date.format(dayFormat)}. Check that this is not a duplicate.",
@@ -337,24 +429,23 @@ fun VisitFormScreen(
             } else if (key.isNotEmpty()) {
                 Notice("New patient number. The patient is enrolled automatically when you save.")
             }
-            if (similar.isNotEmpty()) {
-                Notice("This number is close to one already enrolled. Is it the same patient?", warning = true)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    similar.forEach { s ->
-                        AssistChip(
-                            onClick = { form.patientNo = s.patientNo },
-                            label = { Text(s.patientNo + if (s.name.isNotBlank()) " – ${s.name}" else "") }
-                        )
-                    }
-                }
-            }
-            if (key.isNotEmpty() && (matched == null || matched.name.isBlank())) {
+
+            if (matched != null && matched.name.isNotBlank()) {
+                Text(
+                    "Name: ${matched.name}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
                 OutlinedTextField(
                     value = form.name,
                     onValueChange = { form.name = it },
                     label = { Text("Name (optional, saved once in the patient list)") },
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Next),
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Words,
+                        imeAction = ImeAction.Next
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -362,6 +453,13 @@ fun VisitFormScreen(
             SectionHeader("Patient")
             NumberField("Age (years)" + star(FormField.AGE), form.age, { form.age = it }, errors[FormField.AGE], decimal = false)
             SingleChoice("Sex" + star(FormField.SEX), Keys.sex, form.sex, { form.sex = it }, errors[FormField.SEX])
+            if (existing == null) {
+                SuggestionPanel(
+                    suggestions = suggestions,
+                    onPick = { applySuggestion(it) },
+                    onDismiss = { dismissed = dismissed + it.facts.patient.id }
+                )
+            }
             NumberField(
                 "Visit for the month" + star(FormField.VISIT_NO), form.visitNo,
                 { form.visitNo = it; visitNoTouched = true }, errors[FormField.VISIT_NO], decimal = false
@@ -490,7 +588,6 @@ fun VisitFormScreen(
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 modifier = Modifier.fillMaxWidth()
             )
-
             Spacer(Modifier.height(24.dp))
         }
     }
